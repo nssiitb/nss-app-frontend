@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:nssapp/utils/routes.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:nssapp/global/IPv4_address.dart';
+import 'package:flutter/material.dart';
+import 'package:nssapp/services/api_service.dart';
 
 class RegistrationForm extends StatefulWidget {
   const RegistrationForm({super.key});
@@ -49,11 +49,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
       "password": passwordController.text,
     };
 
-    var response = await http.post(
-      Uri.parse(baseURL + '/register'),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode(regBody),
-    );
+    var response = await ApiService.register(regBody);
 
     var jsonResponse = jsonDecode(response.body);
 

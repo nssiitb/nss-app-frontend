@@ -2,11 +2,10 @@
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:nssapp/global/global_auth_helper.dart';
-import 'package:nssapp/global/IPv4_address.dart';
 import 'package:nssapp/utils/routes.dart';
 import 'package:nssapp/utils/authenticator.dart';
+import 'package:nssapp/services/api_service.dart';
 
 class LoginForm extends StatefulWidget {
   const LoginForm({super.key});
@@ -47,14 +46,8 @@ class _LoginFormState extends State<LoginForm> {
     };
 
     try {
-      var response = await http.post(
-        Uri.parse(baseURL + '/login'),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode(reqBody),
-      );
-
+      var response = await ApiService.login(reqBody);
       var jsonResponse = jsonDecode(response.body);
-
       if (jsonResponse['status']) {
         await _authService.saveToken(jsonResponse['userData']);
         await GlobalAuthHelper.fetchToken();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:nssapp/pages/fetchAtt.dart';
 import 'package:nssapp/pages/attbyDept.dart';
 import 'package:nssapp/pages/attbyEvent.dart';
@@ -21,7 +22,8 @@ import 'package:nssapp/pages/volunteerList.dart';
 
 import 'utils/routes.dart';
 
-void main() {
+void main() async {
+  await dotenv.load(fileName: ".env");
   runApp(const MyApp());
 }
 

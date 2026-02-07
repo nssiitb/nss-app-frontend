@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:nssapp/global/global_auth_helper.dart';
-import 'package:nssapp/global/IPv4_address.dart';
+import 'package:nssapp/services/api_service.dart';
 import 'package:intl/intl.dart';
 import 'package:nssapp/global/uuid.dart';
 
@@ -30,7 +29,7 @@ class _AttendanceState extends State<Attendance> {
 
   Future<void> fetchActivities() async {
     try {
-      final res = await http.get(Uri.parse(baseURL + '/eventsToday'));
+      final res = await ApiService.getEventsToday();
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
         final events = data['events'] as List;
@@ -96,9 +95,7 @@ class _AttendanceState extends State<Attendance> {
       print(latitude);
       print(longitude);
 
-      var response = await http.post(
-        Uri.parse(baseURL + '/attendance'),
-        body: {
+      var response = await ApiService.markAttendance({
           "_roll_": roll,
           "_name_": name,
           "_timestamp_": timeStamp,
@@ -109,8 +106,7 @@ class _AttendanceState extends State<Attendance> {
           "_message_": eventName,
           "_fingerprint_": fingerprint,
           "aa_roll": aaRoll,
-        },
-      );
+      });
 
       final resData = json.decode(response.body);
       final message = resData['message'] ?? 'Unknown response';

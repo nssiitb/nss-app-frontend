@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:http/http.dart' as http;
-import 'package:nssapp/global/IPv4_address.dart';
+import 'package:nssapp/services/api_service.dart';
 import 'dart:convert';
 import 'dart:async';
 
@@ -75,10 +77,8 @@ class _EventCalendarScreenState extends State<EventCalendarScreen> {
       _errorMessage = '';
     });
 
-    final url = Uri.parse('$baseURL/calendar');
-
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      final response = await ApiService.getCalendarEvents().timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final List<dynamic> decoded = json.decode(response.body);

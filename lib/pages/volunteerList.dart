@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:nssapp/global/IPv4_address.dart';
+import 'package:nssapp/services/api_service.dart';
 
 class Volunteer {
   final String roll;
@@ -81,7 +80,7 @@ class _VolunteerlistState extends State<Volunteerlist> {
     });
 
     try {
-      final response = await http.get(Uri.parse(baseURL + '/sendVolunteers'));
+      final response = await ApiService.getAllVolunteers();
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
