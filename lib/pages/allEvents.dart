@@ -1,6 +1,5 @@
-import 'package:nssapp/global/IPv4_address.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:nssapp/services/api_service.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 
@@ -23,7 +22,7 @@ class _AlleventsState extends State<Allevents> {
 
   Future<void> fetchActivities() async {
     try {
-      final res = await http.post(Uri.parse('$baseURL/allEvents'));
+      final res = await ApiService.getAllEvents();
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
         final events = data['events'] as List;

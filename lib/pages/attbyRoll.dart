@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:nssapp/global/IPv4_address.dart'; // To access baseURL
+import 'package:nssapp/services/api_service.dart';
 import 'package:intl/intl.dart';
 
 // PDF Dependencies
@@ -42,17 +41,7 @@ class _AttbyrollState extends State<Attbyroll> {
     });
 
     try {
-      // Assuming the API expects a JSON body with "roll" key
-      // Adjust the body keys ("roll" vs "_roll_") based on your backend requirement
-      var body = jsonEncode({
-        "roll": _rollController.text.trim(),
-      });
-
-      final response = await http.post(
-        Uri.parse('$baseURL/attByRoll'),
-        headers: {"Content-Type": "application/json"},
-        body: body,
-      );
+      final response = await ApiService.getAttendanceByRoll(_rollController.text.trim());
 
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);

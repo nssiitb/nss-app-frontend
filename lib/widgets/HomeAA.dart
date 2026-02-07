@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:nssapp/widgets/app_drawer.dart';
 import 'package:nssapp/utils/routes.dart';
-import 'package:geolocator/geolocator.dart'; // Add for location
-import 'package:http/http.dart' as http; // Add for update AA attendance table
-import 'package:nssapp/global/global_auth_helper.dart'; // Add same global files for help
-import 'package:nssapp/global/IPv4_address.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:nssapp/global/global_auth_helper.dart'; 
+import 'package:nssapp/services/api_service.dart';
 
 class Homeaa extends StatefulWidget {
   const Homeaa({super.key});
@@ -56,16 +55,13 @@ class _HomeaaState extends State<Homeaa> {
       String latitude = position.latitude.toString();
       String longitude = position.longitude.toString();
 
-      var response = await http.post(
-        Uri.parse(baseURL + '/address'),
-        body: {
+      var response = await ApiService.startAttendanceWindow({
           "_roll_": roll,
           "_name_": name,
           "_timestamp_": timeStamp,
           "_latitude_": latitude,
           "_longitude_": longitude,
-        },
-      );
+      });
       
       if (!mounted) return; // Check again before showing SnackBar
 

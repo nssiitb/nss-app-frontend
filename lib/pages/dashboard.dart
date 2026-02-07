@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:nssapp/utils/authenticator.dart'; // Assuming authenticator is in utils
-import 'package:nssapp/global/IPv4_address.dart'; // Assuming baseURL is here
+import 'package:nssapp/utils/authenticator.dart';
+import 'package:nssapp/services/api_service.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -43,14 +42,7 @@ class _DashboardPageState extends State<DashboardPage> {
       }
 
       final String rollNumber = userData['roll'];
-      var reqBody = {"roll": rollNumber};
-
-      // Corrected the URL parsing
-      var response = await http.post(
-        Uri.parse('$baseURL/getHours'),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode(reqBody),
-      );
+      var response = await ApiService.getCompletedHours(rollNumber);
 
       if (response.statusCode == 200) {
         var jsonResponse = jsonDecode(response.body);

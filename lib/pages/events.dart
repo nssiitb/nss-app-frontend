@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:nssapp/services/api_service.dart';
 import 'package:flutter/material.dart';
 
 List<String> months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -32,9 +32,8 @@ class _DemoState extends State<Demo> {
   }
 
  Future<void> fetchEvents() async {
-  const String url = 'http://localhost:3000/events'; 
   try {
-    final response = await http.get(Uri.parse(url));
+    final response = await ApiService.getEvents();
     // Log the response body to verify the JSON data
     print('Response body: ${response.body}');
 

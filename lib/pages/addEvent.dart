@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:nssapp/global/IPv4_address.dart';
+import 'package:nssapp/services/api_service.dart';
 
 class AddEvents extends StatefulWidget {
   const AddEvents({super.key});
@@ -83,9 +82,7 @@ class _AddEventsState extends State<AddEvents> {
       "remarks": remarksController.text,
       "department": selectedDepartment ?? "",
     };
-    var response = await http.post(Uri.parse(baseURL + '/addEvent'),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode(reqBody));
+    var response = await ApiService.addEvent(reqBody);
 
     var jsonResponse = jsonDecode(response.body);
 
