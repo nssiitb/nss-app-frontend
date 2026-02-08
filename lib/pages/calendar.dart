@@ -38,7 +38,7 @@ class Event {
     return Event(
       name: json['name'],
       description: json['remarks'] ?? 'No description available.',
-      date: parsedDate, // Use the parsed DateTime object
+      date: parsedDate.add(const Duration(hours: 5, minutes: 30)), // Use the parsed DateTime object
       time: DateFormat.jm().format(parsedDate), // Format the time for display
       hours: json['hours'] is int
           ? json['hours']

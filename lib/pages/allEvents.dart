@@ -106,7 +106,10 @@ class _AlleventsState extends State<Allevents> {
                   itemBuilder: (BuildContext context, int index) {
                     final Map<String, dynamic> event = activities[index];
                     final rawDate = event['date'];
-                    final parsedDate = DateTime.tryParse(rawDate ?? '');
+                    // DateTime converts date saved to UTC which is -5:30 from IST
+                    final parsedDate = DateTime.tryParse(rawDate ?? '')
+                      ?.add(const Duration(hours: 5, minutes: 30));
+
 
                     // Date formatting for the card
                     final day = parsedDate != null
