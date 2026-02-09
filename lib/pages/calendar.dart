@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:nssapp/services/api_service.dart';
 import 'dart:convert';
@@ -35,11 +32,27 @@ class Event {
 
     final DateTime parsedDate = DateTime.parse(json['date']);
 
+    /*
     return Event(
       name: json['name'],
-      description: json['remarks'] ?? 'No description available.',
-      date: parsedDate.add(const Duration(hours: 5, minutes: 30)), // Use the parsed DateTime object
+      description: json['remarks'] ?? '',
+      date: parsedDate.add(const Duration(
+          hours: 5, minutes: 30)), // Use the parsed DateTime object
       time: DateFormat.jm().format(parsedDate), // Format the time for display
+      hours: json['hours'] is int
+          ? json['hours']
+          : int.tryParse(json['hours'].toString()) ?? 0,
+      department: json['department'] ?? 'General',
+    );
+    */
+
+    return Event(
+      name: json['name'],
+      description: json['remarks'] ?? '',
+      date: parsedDate.add(const Duration(
+          hours: 5, minutes: 30)), // Use the parsed DateTime object
+      // Check if time is explicitly provided, otherwise format the ADJUSTED date
+      time: json['time'] ?? DateFormat.jm().format(parsedDate.add(const Duration(hours: 5, minutes: 30))), 
       hours: json['hours'] is int
           ? json['hours']
           : int.tryParse(json['hours'].toString()) ?? 0,
@@ -78,16 +91,18 @@ class _EventCalendarScreenState extends State<EventCalendarScreen> {
     });
 
     try {
-      final response = await ApiService.getCalendarEvents().timeout(const Duration(seconds: 10));
+      final response = await ApiService.getCalendarEvents()
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final List<dynamic> decoded = json.decode(response.body);
         final events = decoded.map((json) => Event.fromJson(json)).toList();
-
+        print(decoded);
         final Map<DateTime, List<Event>> eventsByDate = {};
         for (var event in events) {
           final dateKey =
               DateTime.utc(event.date.year, event.date.month, event.date.day);
+          // print(dateKey);
           if (eventsByDate[dateKey] == null) {
             eventsByDate[dateKey] = [];
           }
@@ -284,10 +299,8 @@ class _EventCalendarScreenState extends State<EventCalendarScreen> {
             ],
           ),
           child: Card(
-            elevation:
-                0, 
-            color: Colors
-                .transparent, 
+            elevation: 0,
+            color: Colors.transparent,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
