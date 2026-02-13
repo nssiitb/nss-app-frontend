@@ -49,7 +49,11 @@ class _LoginFormState extends State<LoginForm> {
       var response = await ApiService.login(reqBody);
       var jsonResponse = jsonDecode(response.body);
       if (jsonResponse['status']) {
-        await _authService.saveToken(jsonResponse['userData']);
+        // await _authService.saveToken(jsonResponse['userData']);
+        await _authService.saveToken(
+          jsonResponse['userData'],
+          jsonResponse['token'],
+        );
         await GlobalAuthHelper.fetchToken();
         rollController.clear();
         passwordController.clear();

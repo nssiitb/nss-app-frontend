@@ -1,36 +1,41 @@
-import 'dart:convert'; // Import this for jsonEncode
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/token_service.dart';
 
 class AuthService {
-  static const String _tokenKey = 'default';
+  static const String _userKey = 'default';
 
-  Future<void> saveToken(Map<String, dynamic>? token) async {
-    if (token != null) {
+  Future<void> saveToken(Map<String, dynamic>? userData, String jwt) async {
+    if (userData != null) {
       final prefs = await SharedPreferences.getInstance();
-      String tokenString = jsonEncode(token); // Convert Map to String
-      await prefs.setString(_tokenKey, tokenString);
-    }
-  }
+      await prefs.setString(_userKey, jsonEncode(userData));
 
-  // Check if token exists (logged in)
-  Future<bool> isLoggedIn() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? tokenString = prefs.getString(_tokenKey);
-    return tokenString != null; // Returns true if token exists
+      await TokenService.saveToken(jwt);
+    }
   }
 
   Future<Map<String, dynamic>?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    String? tokenString = prefs.getString(_tokenKey);
+    String? tokenString = prefs.getString(_userKey);
+
     if (tokenString != null) {
-      return jsonDecode(tokenString); // Convert JSON string back to Map
+      return jsonDecode(tokenString);
     }
     return null;
   }
 
-  // Log out by clearing the token
+  Future<String?> getJwt() async {
+    return await TokenService.getToken();
+  }
+
+  Future<bool> isLoggedIn() async {
+    String? jwt = await getJwt();
+    return jwt != null;
+  }
+
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
+    await prefs.remove(_userKey);
+    await TokenService.deleteToken();
   }
 }
