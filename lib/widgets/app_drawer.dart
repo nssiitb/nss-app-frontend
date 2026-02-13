@@ -42,6 +42,20 @@ class _AppDrawerState extends State<AppDrawer> {
           ListTile(
             contentPadding: const EdgeInsets.fromLTRB(20, 5, 20, 5),
             leading: const Icon(
+              Icons.person,
+              size: 25,
+            ),
+            title: const Text(
+              "Profile",
+              style: TextStyle(fontSize: 18),
+            ),
+            onTap: () {
+              Navigator.pushNamed(context, Routes.profileRoute);
+            },
+          ),
+          ListTile(
+            contentPadding: const EdgeInsets.fromLTRB(20, 5, 20, 5),
+            leading: const Icon(
               Icons.calendar_month_outlined,
               size: 25,
             ),
@@ -51,20 +65,6 @@ class _AppDrawerState extends State<AppDrawer> {
             ),
             onTap: () {
               Navigator.pushNamed(context, Routes.calendarRoute);
-            },
-          ),
-          ListTile(
-            contentPadding: const EdgeInsets.fromLTRB(20, 5, 20, 5),
-            leading: const Icon(
-              Icons.settings,
-              size: 25,
-            ),
-            title: const Text(
-              "Settings",
-              style: TextStyle(fontSize: 18),
-            ),
-            onTap: () {
-              Navigator.pushNamed(context, Routes.profileRoute);
             },
           ),
           ListTile(

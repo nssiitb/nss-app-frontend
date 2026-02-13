@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:nssapp/utils/routes.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/material.dart';
 import 'package:nssapp/services/api_service.dart';
 
 class RegistrationForm extends StatefulWidget {
