@@ -11,12 +11,13 @@ class RegistrationForm extends StatefulWidget {
 }
 
 class _RegistrationFormState extends State<RegistrationForm> {
-  // Validation state
-  bool nameValid = true;
-  bool rollValid = true;
-  bool phoneValid = true;
-  bool emailValid = true;
-  bool passValid = true;
+  // Error messages
+  String? nameError;
+  String? rollError;
+  String? phoneError;
+  String? emailError;
+  String? passError;
+  bool showDeptError = false;
 
   // Controllers
   final TextEditingController nameController = TextEditingController();
@@ -67,17 +68,18 @@ class _RegistrationFormState extends State<RegistrationForm> {
   Widget _textField({
     required TextEditingController controller,
     required String label,
-    required bool isValid,
-    required String errorText,
+    String? errorText,
     bool obscureText = false,
+    TextInputType keyboardType = TextInputType.text,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: TextFormField(
         controller: controller,
         obscureText: obscureText,
+        keyboardType: keyboardType,
         decoration: InputDecoration(
-          errorText: !isValid ? errorText : null,
+          errorText: errorText,
           labelText: label,
           labelStyle: const TextStyle(fontSize: 18),
           border: OutlineInputBorder(
@@ -91,52 +93,119 @@ class _RegistrationFormState extends State<RegistrationForm> {
   Widget _dropdownField() {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
-      child: DropdownButtonFormField<String>(
-        value: deptController.text.isEmpty ? null : deptController.text,
-        items: const [
-          DropdownMenuItem(value: 'CE', child: Text('Campus Engagement')),
-          DropdownMenuItem(value: 'EO', child: Text('Educational Outreach')),
-          DropdownMenuItem(value: 'SD', child: Text('Social Development')),
-          DropdownMenuItem(
-              value: 'EnS', child: Text('Environment and Sustainabilty')),
-        ],
-        onChanged: (val) {
-          setState(() {
-            deptController.text = val ?? '';
-          });
-        },
-        decoration: InputDecoration(
-          hintText: "Select Department",
-          labelText: "Department",
-          labelStyle: const TextStyle(fontSize: 18),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DropdownButtonFormField<String>(
+            value: deptController.text.isEmpty ? null : deptController.text,
+            items: const [
+              DropdownMenuItem(value: 'CE', child: Text('Campus Engagement')),
+              DropdownMenuItem(value: 'EO', child: Text('Educational Outreach')),
+              DropdownMenuItem(value: 'SD', child: Text('Social Development')),
+              DropdownMenuItem(
+                  value: 'EnS', child: Text('Environment and Sustainabilty')),
+            ],
+            onChanged: (val) {
+              setState(() {
+                deptController.text = val ?? '';
+                showDeptError = false;
+              });
+            },
+            decoration: InputDecoration(
+              hintText: "Select Department",
+              labelText: "Department",
+              labelStyle: const TextStyle(fontSize: 18),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
           ),
-        ),
+          if (showDeptError)
+            const Padding(
+              padding: EdgeInsets.only(top: 8, left: 12),
+              child: Text(
+                "Please select a department",
+                style: TextStyle(color: Colors.red, fontSize: 12),
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  void validateAndSubmit() {
+  bool _validateForm() {
+    bool isValid = true;
     setState(() {
-      nameValid = nameController.text.isNotEmpty;
-      rollValid = rollController.text.isNotEmpty;
-      phoneValid = phoneController.text.isNotEmpty;
-      emailValid = emailController.text.isNotEmpty;
-      passValid = passwordController.text.isNotEmpty;
-    });
+      // Name validation
+      if (nameController.text.trim().isEmpty) {
+        nameError = "Please enter your name";
+        isValid = false;
+      } else {
+        nameError = null;
+      }
 
-    if (nameValid &&
-        rollValid &&
-        phoneValid &&
-        emailValid &&
-        passValid &&
-        deptController.text.isNotEmpty) {
+      // Roll validation
+      if (rollController.text.trim().isEmpty) {
+        rollError = "Please enter your roll number";
+        isValid = false;
+      } else {
+        rollError = null;
+      }
+
+      // Phone validation
+      final phone = phoneController.text.trim();
+      if (phone.isEmpty) {
+        phoneError = "Please enter your phone number";
+        isValid = false;
+      } else if (!RegExp(r'^\d{10}$').hasMatch(phone)) {
+        phoneError = "Phone number must be exactly 10 digits";
+        isValid = false;
+      } else {
+        phoneError = null;
+      }
+
+      // Email validation
+      final email = emailController.text.trim();
+      if (email.isEmpty) {
+        emailError = "Please enter your email";
+        isValid = false;
+      } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+          .hasMatch(email)) {
+        emailError = "Please enter a valid email address";
+        isValid = false;
+      } else {
+        emailError = null;
+      }
+
+      // Password validation
+      if (passwordController.text.isEmpty) {
+        passError = "Please enter a password";
+        isValid = false;
+      } else if (passwordController.text.length < 6) {
+        passError = "Password must be at least 6 characters long";
+        isValid = false;
+      } else {
+        passError = null;
+      }
+
+      // Department validation
+      if (deptController.text.isEmpty) {
+        showDeptError = true;
+        isValid = false;
+      } else {
+        showDeptError = false;
+      }
+    });
+    return isValid;
+  }
+
+  void validateAndSubmit() {
+    if (_validateForm()) {
       registerUser();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Please fill all fields correctly."),
+          content: Text("Please fix the errors in the form."),
           duration: Duration(seconds: 2),
         ),
       );
@@ -152,33 +221,30 @@ class _RegistrationFormState extends State<RegistrationForm> {
           _textField(
             controller: nameController,
             label: "Name",
-            isValid: nameValid,
-            errorText: "Please enter your name.",
+            errorText: nameError,
           ),
           _textField(
             controller: rollController,
             label: "Roll Number",
-            isValid: rollValid,
-            errorText: "Please enter your roll number.",
+            errorText: rollError,
           ),
           _textField(
             controller: phoneController,
             label: "Phone Number",
-            isValid: phoneValid,
-            errorText: "Please enter your phone number.",
+            errorText: phoneError,
+            keyboardType: TextInputType.phone,
           ),
           _dropdownField(),
           _textField(
             controller: emailController,
             label: "Email",
-            isValid: emailValid,
-            errorText: "Please enter your email.",
+            errorText: emailError,
+            keyboardType: TextInputType.emailAddress,
           ),
           _textField(
             controller: passwordController,
             label: "Password",
-            isValid: passValid,
-            errorText: "Please enter your password.",
+            errorText: passError,
             obscureText: true,
           ),
           const SizedBox(height: 30),

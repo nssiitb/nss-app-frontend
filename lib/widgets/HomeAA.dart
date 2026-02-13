@@ -3,26 +3,22 @@ import 'package:intl/intl.dart';
 import 'package:nssapp/widgets/app_drawer.dart';
 import 'package:nssapp/utils/routes.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:nssapp/global/global_auth_helper.dart'; 
+import 'package:nssapp/global/global_auth_helper.dart';
 import 'package:nssapp/services/api_service.dart';
 
 class Homeaa extends StatefulWidget {
-  const Homeaa({super.key});
+  final String name;
+  const Homeaa({super.key, required this.name});
 
   @override
   State<Homeaa> createState() => _HomeaaState();
 }
 
 class _HomeaaState extends State<Homeaa> {
-  String? name = "";
-  // 1. ADD THIS STATE VARIABLE
   bool _isLoading = false;
 
   void startWindow() async {
-    // Prevent function from running if it's already in progress
     if (_isLoading) return;
-
-    // Use `mounted` to check if the widget is still in the widget tree
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -31,7 +27,6 @@ class _HomeaaState extends State<Homeaa> {
 
     try {
       String? roll = GlobalAuthHelper.globalrollNo;
-      name = GlobalAuthHelper.globalname;
 
       String timeStamp =
           DateFormat("yyyy-MM-dd HH:mm:ss").format(DateTime.now());
@@ -44,26 +39,27 @@ class _HomeaaState extends State<Homeaa> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-           throw Exception("Location permissions are denied.");
+          throw Exception("Location permissions are denied.");
         }
       }
-       if (permission == LocationPermission.deniedForever) {
-          throw Exception("Location permissions are permanently denied. Please enable them from settings.");
-        }
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception(
+            "Location permissions are permanently denied. Please enable them from settings.");
+      }
       Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
       String latitude = position.latitude.toString();
       String longitude = position.longitude.toString();
 
       var response = await ApiService.startAttendanceWindow({
-          "_roll_": roll,
-          "_name_": name,
-          "_timestamp_": timeStamp,
-          "_latitude_": latitude,
-          "_longitude_": longitude,
+        "_roll_": roll,
+        "_name_": widget.name,
+        "_timestamp_": timeStamp,
+        "_latitude_": latitude,
+        "_longitude_": longitude,
       });
-      
-      if (!mounted) return; // Check again before showing SnackBar
+
+      if (!mounted) return;
 
       if (response.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -76,12 +72,11 @@ class _HomeaaState extends State<Homeaa> {
       }
     } catch (e) {
       if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error: ${e.toString()}")),
         );
       }
     } finally {
-      // This will run whether the try block completes successfully or throws an error
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -116,8 +111,8 @@ class _HomeaaState extends State<Homeaa> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "Hi!",
+            Text(
+              "Hi, ${widget.name}",
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w500,
@@ -127,7 +122,7 @@ class _HomeaaState extends State<Homeaa> {
             ),
             const SizedBox(height: 4),
             const Text(
-              "Welcome back.",
+              "Welcome back",
               style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w400,
@@ -180,9 +175,9 @@ class _HomeaaState extends State<Homeaa> {
                       color: Color(0xFF344055)),
               title: "Start Attendance Window",
               fullWidth: true,
-              onTap: () {
+              onTap: () async {
                 // The function itself now prevents multiple clicks
-                GlobalAuthHelper.fetchToken();
+                await GlobalAuthHelper.fetchToken();
                 startWindow();
               },
             ),
@@ -254,7 +249,8 @@ class DashboardCard extends StatelessWidget {
           children: [
             // The CircleAvatar is now a flexible Widget
             CircleAvatar(
-              backgroundColor: Colors.transparent, // Background is handled by container
+              backgroundColor:
+                  Colors.transparent, // Background is handled by container
               radius: 20,
               child: circleContent,
             ),

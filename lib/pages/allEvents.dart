@@ -28,17 +28,13 @@ class _AlleventsState extends State<Allevents> {
         final events = data['events'] as List;
 
         events.sort((a, b) {
-          // Safely parse dates, providing a fallback for invalid/null strings
           final dateA = DateTime.tryParse(a['date'] ?? '');
           final dateB = DateTime.tryParse(b['date'] ?? '');
-
-          // Handle cases where dates might be null or unparseable
           if (dateA == null && dateB == null) return 0;
-          if (dateA == null)
-            return 1; // Treat nulls as "greater" to push them to the end
-          if (dateB == null) return -1; // Treat nulls as "greater"
-
-          // Compare the two dates. Closest (smallest) date will come first.
+          if (dateA == null) {
+            return 1;
+          }
+          if (dateB == null) return -1;
           return dateA.compareTo(dateB);
         });
 
@@ -108,8 +104,7 @@ class _AlleventsState extends State<Allevents> {
                     final rawDate = event['date'];
                     // DateTime converts date saved to UTC which is -5:30 from IST
                     final parsedDate = DateTime.tryParse(rawDate ?? '')
-                      ?.add(const Duration(hours: 5, minutes: 30));
-
+                        ?.add(const Duration(hours: 5, minutes: 30));
 
                     // Date formatting for the card
                     final day = parsedDate != null

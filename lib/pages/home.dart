@@ -19,7 +19,7 @@ class Home extends StatelessWidget {
         final data = snapshot.data!;
         final isaa = data["isaa"] == true;
         return isaa
-            ? const Homeaa()
+            ? Homeaa(name: data["name"] ?? "User")
             : Homevolunteer(name: data["name"] ?? "User");
       },
     );
