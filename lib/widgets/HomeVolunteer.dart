@@ -97,8 +97,25 @@ class Homevolunteer extends StatelessWidget {
                                     final url = Uri.parse(
                                       "https://nss.gymkhana.iitb.ac.in/certificates/",
                                     );
-                                    if (await canLaunchUrl(url)) {
-                                      await launchUrl(url);
+                                    try {
+                                      if (await canLaunchUrl(url)) {
+                                        await launchUrl(
+                                          url,
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      } else {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text("Could not open the portal")),
+                                          );
+                                        }
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text("Error: $e")),
+                                        );
+                                      }
                                     }
                                   },
                                 ),
