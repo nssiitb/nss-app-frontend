@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:nssapp/utils/routes.dart';
 import 'package:flutter/material.dart';
 import 'package:nssapp/services/api_service.dart';
+import 'package:nssapp/global/uuid.dart';
 
 class RegistrationForm extends StatefulWidget {
   const RegistrationForm({super.key});
@@ -40,6 +41,8 @@ class _RegistrationFormState extends State<RegistrationForm> {
   }
 
   void registerUser() async {
+    String fingerprint = await DeviceIDHelper.getDeviceId();
+
     var regBody = {
       "roll": rollController.text,
       "name": nameController.text,
@@ -47,6 +50,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
       "dept": deptController.text,
       "email": emailController.text,
       "password": passwordController.text,
+      "fingerprint": fingerprint,
     };
 
     var response = await ApiService.register(regBody);
