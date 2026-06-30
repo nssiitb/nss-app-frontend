@@ -6,6 +6,7 @@ import 'package:nssapp/global/global_auth_helper.dart';
 import 'package:nssapp/utils/routes.dart';
 import 'package:nssapp/utils/authenticator.dart';
 import 'package:nssapp/services/api_service.dart';
+import 'package:nssapp/pages/forgot_password_screen.dart';
 
 class LoginForm extends StatefulWidget {
   const LoginForm({super.key});
@@ -223,6 +224,29 @@ class _LoginFormState extends State<LoginForm> {
                   fontWeight: FontWeight.w500,
                   fontSize: 20,
                   color: Color(0xFF506680),
+                ),
+              ),
+            ),
+          ),
+          // ↓ ADDED: Forgot Password link
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ForgotPasswordScreen(),
+                  ),
+                );
+              },
+              child: const Text(
+                'Forgot Password?',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontFamily: 'Raleway',
+                  color: Color.fromARGB(255, 0, 106, 192),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
