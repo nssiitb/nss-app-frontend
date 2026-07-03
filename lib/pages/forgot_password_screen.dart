@@ -34,7 +34,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     try {
       // TODO: Replace with your actual backend API endpoint
       final response = await http.post(
-        Uri.parse('https://your-backend.com/api/auth/forgot-password'),
+        Uri.parse('http://localhost:3000/forgot-password'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': _emailController.text.trim()}),
       );
