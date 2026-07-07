@@ -19,6 +19,9 @@ import 'package:nssapp/pages/attendance.dart';
 import 'package:nssapp/pages/addEvent.dart';
 import 'package:nssapp/pages/allEvents.dart';
 import 'package:nssapp/pages/volunteerList.dart';
+import 'package:nssapp/pages/forgotPassword.dart';
+import 'package:nssapp/pages/verifyOTP.dart';
+import 'package:nssapp/pages/resetPassword.dart';
 
 import 'utils/routes.dart';
 
@@ -55,6 +58,9 @@ class MyApp extends StatelessWidget {
         Routes.attbyEvent: (context) => const Attbyevent(),
         Routes.attbyRoll: (context) => const Attbyroll(),
         Routes.attbyDept: (context) => const Attbydept(),
+        Routes.forgotPassword: (context) => const ForgotPassword(),
+        Routes.verifyOTP: (context) => const VerifyOTP(),
+        Routes.resetPassword: (context) => const ResetPassword(),
       },
     );
   }

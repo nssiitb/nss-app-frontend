@@ -25,10 +25,31 @@ class SignIn extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      body: const SingleChildScrollView(
+      body: SingleChildScrollView(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
-          child: LoginForm(),
+          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 20.0),
+          child: Column(
+            children: [
+              const LoginForm(),
+
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, Routes.forgotPassword);
+                  },
+                  child: const Text(
+                    "Forgot Password?",
+                    style: TextStyle(
+                      color: Color.fromARGB(255, 0, 106, 192),
+                      fontFamily: "Raleway",
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: SafeArea(
