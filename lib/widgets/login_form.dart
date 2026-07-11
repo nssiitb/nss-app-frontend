@@ -187,6 +187,24 @@ class _LoginFormState extends State<LoginForm> {
                   ),
                 ),
               ),
+              const Spacer(),
+              TextButton(
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 0),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () =>
+                    Navigator.pushNamed(context, Routes.forgotPassword),
+                child: Text(
+                  'Forgot password?',
+                  style: rf(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: _kBrand,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 28),
