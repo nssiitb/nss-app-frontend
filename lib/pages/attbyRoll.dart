@@ -1,13 +1,24 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:nssapp/services/api_service.dart';
-import 'package:intl/intl.dart';
 
-// PDF Dependencies
-// Ensure you have added 'pdf' and 'printing' to your pubspec.yaml
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:nssapp/services/api_service.dart';
+import 'package:nssapp/widgets/login_form.dart'
+    show PillField, PillButton, rf;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+
+const Color _kBrand = Color(0xFF1A3B5A);
+const Color _kInk = Color(0xFF0F172A);
+const Color _kMuted = Color(0xFF6C757D);
+const Color _kBg = Color(0xFFF8F9FB);
+const Color _kChipBg = Color(0xFFEEF2F7);
+const Color _kSuccess = Color(0xFF16A34A);
+const Color _kSuccessBg = Color(0xFFECFDF5);
+const Color _kDanger = Color(0xFFDC2626);
+const Color _kDangerBg = Color(0xFFFEF2F2);
 
 class Attbyroll extends StatefulWidget {
   const Attbyroll({super.key});
@@ -17,230 +28,362 @@ class Attbyroll extends StatefulWidget {
 }
 
 class _AttbyrollState extends State<Attbyroll> {
-  final TextEditingController _rollController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-  
-  List<dynamic> _attendanceData = [];
-  bool _isLoading = false;
+  final _roll = TextEditingController();
+  List<dynamic> _records = [];
+  bool _loading = false;
   bool _hasSearched = false;
 
   @override
   void dispose() {
-    _rollController.dispose();
+    _roll.dispose();
     super.dispose();
   }
 
-  // 1. Function to fetch data from API
-  Future<void> _fetchAttendance() async {
-    if (!_formKey.currentState!.validate()) return;
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
 
+  Future<void> _fetch() async {
+    if (_loading) return;
+    if (_roll.text.trim().isEmpty) {
+      _snack('Enter a roll number first.');
+      return;
+    }
     setState(() {
-      _isLoading = true;
+      _loading = true;
       _hasSearched = true;
-      _attendanceData = []; // Clear previous results
+      _records = [];
     });
-
     try {
-      final response = await ApiService.getAttendanceByRoll(_rollController.text.trim());
-
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
-        
-        // Adjust this parsing based on whether your API returns a direct list 
-        // or a wrapper object like { "data": [...] }
-        if (jsonResponse is List) {
-          setState(() {
-            _attendanceData = jsonResponse;
-          });
-        } else if (jsonResponse['data'] != null) {
-          setState(() {
-            _attendanceData = jsonResponse['data'];
-          });
+      final res = await ApiService.getAttendanceByRoll(_roll.text.trim());
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        List<dynamic> data;
+        if (decoded is List) {
+          data = decoded;
+        } else if (decoded is Map && decoded['data'] is List) {
+          data = decoded['data'];
         } else {
-           // Fallback if structure is different
-           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("No attendance data found format unknown.")),
-          );
+          data = [];
         }
+        if (!mounted) return;
+        setState(() => _records = data);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: ${response.statusCode}")),
-        );
+        _snack('Error: ${res.statusCode}');
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Connection error: $e")),
-      );
+    } catch (_) {
+      _snack("Couldn't reach the server. Please try again.");
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  // 2. Function to generate and print/download PDF
   Future<void> _generatePdf() async {
+    if (_records.isEmpty) return;
     final pdf = pw.Document();
-
     pdf.addPage(
       pw.Page(
-        build: (pw.Context context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Header(
-                level: 0,
-                child: pw.Text("Attendance Report", style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-              ),
-              pw.SizedBox(height: 10),
-              pw.Text("Roll Number: ${_rollController.text}", style: const pw.TextStyle(fontSize: 18)),
-              pw.Text("Generated on: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}"),
-              pw.SizedBox(height: 20),
-              
-              // Create the table
-              pw.TableHelper.fromTextArray(
-                headers: ['Date', 'Event/Activity', 'Status'],
-                data: _attendanceData.map((record) {
-                  // Adjust these keys ('timestamp', 'message', 'status') to match your actual API response
-                  final date = record['_timestamp_'] ?? record['timestamp'] ?? 'N/A';
-                  final event = record['_message_'] ?? record['message'] ?? 'N/A';
-                  final status = (record['_status_'] ?? record['status'] ?? '0').toString() == '1' ? 'Present' : 'Absent';
-                  
-                  return [date, event, status];
-                }).toList(),
-                border: pw.TableBorder.all(),
-                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
-                cellAlignment: pw.Alignment.centerLeft,
-              ),
-            ],
-          );
-        },
+        build: (ctx) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Header(
+              level: 0,
+              child: pw.Text('Attendance Report',
+                  style: pw.TextStyle(
+                      fontSize: 24, fontWeight: pw.FontWeight.bold)),
+            ),
+            pw.SizedBox(height: 10),
+            pw.Text('Roll Number: ${_roll.text}',
+                style: const pw.TextStyle(fontSize: 18)),
+            pw.Text(
+              'Generated on: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}',
+            ),
+            pw.SizedBox(height: 20),
+            pw.TableHelper.fromTextArray(
+              headers: ['Date', 'Event / Activity', 'Status'],
+              data: _records.map((r) {
+                final date = r['_timestamp_'] ?? r['timestamp'] ?? 'N/A';
+                final event = r['_message_'] ?? r['message'] ?? 'N/A';
+                final status =
+                    (r['_status_'] ?? r['status'] ?? '0').toString() == '1'
+                        ? 'Present'
+                        : 'Absent';
+                return [date, event, status];
+              }).toList(),
+              border: pw.TableBorder.all(),
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              headerDecoration:
+                  const pw.BoxDecoration(color: PdfColors.grey300),
+              cellAlignment: pw.Alignment.centerLeft,
+            ),
+          ],
+        ),
       ),
     );
-
-    // This allows the user to print or share (save to files) the PDF
     await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: 'Attendance_${_rollController.text}.pdf',
+      onLayout: (format) async => pdf.save(),
+      name: 'Attendance_${_roll.text}.pdf',
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: _kBg,
       appBar: AppBar(
-        title: const Text("Student Attendance"),
-        backgroundColor: const Color(0xFFF5F6FA),
-        elevation: 1,
+        backgroundColor: _kBg,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: _kInk),
+        ),
+        title: Text(
+          'By roll number',
+          style: rf(fontSize: 18, fontWeight: FontWeight.w600, color: _kInk),
+        ),
       ),
-      backgroundColor: const Color(0xFFF5F6FA),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            // Search Section
-            Form(
-              key: _formKey,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _rollController,
-                      decoration: InputDecoration(
-                        labelText: 'Enter Roll Number',
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
-                      validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                      backgroundColor: const Color(0xFF6A5AE0),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: _isLoading ? null : _fetchAttendance,
-                    child: _isLoading 
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-                      : const Icon(Icons.search, color: Colors.white),
-                  ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              PillField(
+                controller: _roll,
+                hintText: 'Roll number',
+                prefixIcon: Icons.person_outline,
+                textInputAction: TextInputAction.search,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+                  LengthLimitingTextInputFormatter(10),
                 ],
+                onSubmitted: (_) => _fetch(),
+              ),
+              const SizedBox(height: 14),
+              PillButton(
+                label: 'Search',
+                loading: _loading,
+                onPressed: _fetch,
+              ),
+              const SizedBox(height: 20),
+              Expanded(child: _body()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _body() {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(color: _kBrand, strokeWidth: 2.4),
+      );
+    }
+    if (!_hasSearched) {
+      return _hintCard(
+        icon: Icons.search,
+        title: 'Search for a volunteer',
+        message: 'Enter a roll number above to see their attendance history.',
+      );
+    }
+    if (_records.isEmpty) {
+      return _hintCard(
+        icon: Icons.event_busy_outlined,
+        title: 'No records',
+        message: 'This roll number has no attendance records yet.',
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _kChipBg,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '${_records.length} ${_records.length == 1 ? "record" : "records"}',
+                style: rf(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _kBrand,
+                ),
               ),
             ),
-            
-            const SizedBox(height: 20),
-
-            // List or Empty State
-            Expanded(
-              child: _isLoading 
-                ? const Center(child: Text("Fetching records..."))
-                : _attendanceData.isEmpty 
-                  ? Center(
-                      child: Text(
-                        _hasSearched ? "No attendance records found." : "Enter a roll number to see details.",
-                        style: const TextStyle(color: Colors.grey, fontSize: 16),
-                      ),
-                    )
-                  : Column(
-                      children: [
-                        // Results Header
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "Records Found: ${_attendanceData.length}",
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                            TextButton.icon(
-                              onPressed: _generatePdf,
-                              icon: const Icon(Icons.picture_as_pdf),
-                              label: const Text("Download PDF"),
-                            )
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        // List View
-                        Expanded(
-                          child: ListView.builder(
-                            itemCount: _attendanceData.length,
-                            itemBuilder: (context, index) {
-                              final item = _attendanceData[index];
-                              // Safely accessing data with fallbacks
-                              final eventName = item['_message_'] ?? item['message'] ?? 'Unknown Event';
-                              final date = item['_timestamp_'] ?? item['timestamp'] ?? 'Unknown Date';
-                              final status = (item['_status_'] ?? item['status']).toString();
-                              
-                              return Card(
-                                elevation: 2,
-                                margin: const EdgeInsets.only(bottom: 10),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: status == '1' ? Colors.green.shade100 : Colors.red.shade100,
-                                    child: Icon(
-                                      status == '1' ? Icons.check : Icons.close,
-                                      color: status == '1' ? Colors.green : Colors.red,
-                                    ),
-                                  ),
-                                  title: Text(eventName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                  subtitle: Text(date),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: _generatePdf,
+              icon: const Icon(Icons.picture_as_pdf_outlined,
+                  size: 18, color: _kBrand),
+              label: Text(
+                'PDF',
+                style: rf(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _kBrand,
+                ),
+              ),
             ),
           ],
         ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.only(bottom: 12),
+            itemCount: _records.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (_, i) => _RecordTile(record: _records[i]),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _hintCard({
+    required IconData icon,
+    required String title,
+    required String message,
+  }) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: _kChipBg,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(icon, size: 28, color: _kBrand),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: rf(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: _kInk,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: rf(
+                fontSize: 13,
+                fontWeight: FontWeight.w300,
+                color: _kMuted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecordTile extends StatelessWidget {
+  final dynamic record;
+  const _RecordTile({required this.record});
+
+  @override
+  Widget build(BuildContext context) {
+    final event = (record['_message_'] ?? record['message'] ?? 'Event')
+        .toString();
+    final ts =
+        (record['_timestamp_'] ?? record['timestamp'] ?? '').toString();
+    final statusRaw =
+        (record['_status_'] ?? record['status'] ?? '0').toString();
+    final present = statusRaw == '1';
+    final chipBg = present ? _kSuccessBg : _kDangerBg;
+    final chipFg = present ? _kSuccess : _kDanger;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F1A3B5A),
+            blurRadius: 14,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: chipBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              present ? Icons.check_rounded : Icons.close_rounded,
+              size: 22,
+              color: chipFg,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event,
+                  style: rf(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: _kInk,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  ts.isEmpty ? '—' : ts,
+                  style: rf(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w300,
+                    color: _kMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: chipBg,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              present ? 'Present' : 'Absent',
+              style: rf(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: chipFg,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

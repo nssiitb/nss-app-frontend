@@ -1,7 +1,15 @@
-import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:nssapp/utils/authenticator.dart';
 import 'package:nssapp/services/api_service.dart';
+import 'package:nssapp/widgets/login_form.dart' show rf;
+
+const Color _kBrand = Color(0xFF1A3B5A);
+const Color _kInk = Color(0xFF0F172A);
+const Color _kMuted = Color(0xFF6C757D);
+const Color _kBg = Color(0xFFF8F9FB);
+const Color _kChipBg = Color(0xFFEEF2F7);
+const int _kTotalHours = 40;
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -11,198 +19,317 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  // AuthService instance to get user data
   final AuthService _authService = AuthService();
 
-  // State variables to hold fetched data and loading status
   int? _completedHours;
-  final int _totalHours = 40;
   bool _isLoading = true;
   String _errorMessage = '';
 
   @override
   void initState() {
     super.initState();
-    // Fetch the data when the widget is first created
     _fetchCompletedHours();
   }
 
-  /// Fetches the completed hours for the logged-in volunteer from the backend.
   Future<void> _fetchCompletedHours() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
     try {
       final userData = await _authService.getToken();
-
       if (userData == null || userData['roll'] == null) {
-        setState(() {
-          _errorMessage =
-              'Could not find user information. Please log in again.';
-          _isLoading = false;
-        });
-        return;
-      }
-
-      final String rollNumber = userData['roll'];
-      var response = await ApiService.getCompletedHours(rollNumber);
-
-      if (response.statusCode == 200) {
-        var jsonResponse = jsonDecode(response.body);
-        if (jsonResponse['status'] == true && jsonResponse['hours'] != null) {
+        if (mounted) {
           setState(() {
-            _completedHours = jsonResponse['hours'];
-            _isLoading = false;
-          });
-        } else {
-          setState(() {
-            _errorMessage = jsonResponse['message'] ?? 'Failed to get data.';
+            _errorMessage = 'Could not find your account. Please sign in again.';
             _isLoading = false;
           });
         }
+        return;
+      }
+
+      final res =
+          await ApiService.getCompletedHours(userData['roll'].toString());
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['status'] == true && body['hours'] != null) {
+          if (mounted) {
+            setState(() {
+              _completedHours = (body['hours'] as num).toInt();
+              _isLoading = false;
+            });
+          }
+        } else {
+          if (mounted) {
+            setState(() {
+              _errorMessage = body['message']?.toString() ?? 'Failed to load hours.';
+              _isLoading = false;
+            });
+          }
+        }
       } else {
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'Server error (${res.statusCode}).';
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (_) {
+      if (mounted) {
         setState(() {
-          _errorMessage = 'Server error: ${response.statusCode}';
+          _errorMessage = "Couldn't reach the server. Pull to refresh.";
           _isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'An error occurred: $e';
-        _isLoading = false;
-      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    double progress =
-        _completedHours != null ? _completedHours! / _totalHours : 0.0;
-    int remainingHours =
-        _completedHours != null ? _totalHours - _completedHours! : _totalHours;
+    final hours = _completedHours ?? 0;
+    final progress = (hours / _kTotalHours).clamp(0.0, 1.0);
+    final remaining = (_kTotalHours - hours).clamp(0, _kTotalHours);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA), // A clean, off-white background
+      backgroundColor: _kBg,
       appBar: AppBar(
+        backgroundColor: _kBg,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon:
-              const Icon(Icons.arrow_back, size: 24, color: Color(0xFF343A40)),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: _kInk),
         ),
-        backgroundColor: Colors.transparent, // Makes app bar blend with body
-        elevation: 0,
-        title: const Text(
+        title: Text(
           'My Progress',
-          style: TextStyle(
-            fontSize: 24,
-            fontFamily: "Raleway",
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF343A40), // Dark grey for text
+          style: rf(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: _kInk,
           ),
         ),
-        centerTitle: true,
+        centerTitle: false,
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-          child: _isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF4C6EF5)))
-              : _errorMessage.isNotEmpty
-                  ? Center(
-                      child: Text(_errorMessage,
-                          style:
-                              const TextStyle(color: Colors.red, fontSize: 16)))
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const SizedBox.shrink(), // Spacer
-                        // Main progress circle
-                        Container(
-                          width: 240,
-                          height: 240,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.15),
-                                spreadRadius: 5,
-                                blurRadius: 15,
-                                offset: const Offset(0, 5),
-                              ),
-                            ],
-                          ),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: CircularProgressIndicator(
-                                  value: progress,
-                                  strokeWidth: 12,
-                                  backgroundColor: const Color(0xFFE9ECEF),
-                                  valueColor:
-                                      const AlwaysStoppedAnimation<Color>(
-                                          Color(0xFF4C6EF5)),
-                                  strokeCap: StrokeCap.round,
-                                ),
-                              ),
-                              Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      '${_completedHours ?? 0}',
-                                      style: const TextStyle(
-                                        fontSize: 68,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF343A40),
-                                      ),
-                                    ),
-                                    const Text(
-                                      'Hours Done',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        color: Color(0xFF868E96),
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Remaining hours text
-                        if (_completedHours != null)
-                          Text(
-                            remainingHours > 0
-                                ? "You need $remainingHours more hours to qualify."
-                                : "Congratulations! You've completed all hours.",
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Color(0xFF495057),
-                            ),
-                          ),
-
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE9ECEF),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            "A minimum of 40 hours must be completed to be eligible for the PP grade, comprising 36 hours of NSS activities and 4 hours of Wellness activities.",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF495057),
-                              height: 1.5, // Improved line spacing
-                            ),
-                          ),
-                        ),
-                      ],
+        child: RefreshIndicator(
+          color: _kBrand,
+          onRefresh: _fetchCompletedHours,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            child: _isLoading
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 120),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: _kBrand,
+                        strokeWidth: 2.4,
+                      ),
                     ),
+                  )
+                : _errorMessage.isNotEmpty
+                    ? _ErrorCard(
+                        message: _errorMessage,
+                        onRetry: _fetchCompletedHours,
+                      )
+                    : _Content(
+                        hours: hours,
+                        progress: progress,
+                        remaining: remaining,
+                      ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Content extends StatelessWidget {
+  final int hours;
+  final double progress;
+  final int remaining;
+
+  const _Content({
+    required this.hours,
+    required this.progress,
+    required this.remaining,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(height: 40),
+        // Ring
+        SizedBox(
+          width: 240,
+          height: 240,
+          child: Stack(
+            fit: StackFit.expand,
+            alignment: Alignment.center,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: _kBrand.withOpacity(0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 12,
+                  backgroundColor: _kChipBg,
+                  valueColor: const AlwaysStoppedAnimation<Color>(_kBrand),
+                  strokeCap: StrokeCap.round,
+                ),
+              ),
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '$hours',
+                      style: rf(
+                        fontSize: 64,
+                        fontWeight: FontWeight.w500,
+                        color: _kInk,
+                        height: 1.0,
+                        letterSpacing: -1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Hours Done',
+                      style: rf(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: _kMuted,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 36),
+        Text(
+          remaining > 0
+              ? "You need $remaining more hours to qualify."
+              : "You've completed your PP requirement.",
+          textAlign: TextAlign.center,
+          style: rf(
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+            color: _kInk,
+          ),
+        ),
+        const SizedBox(height: 36),
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0F1A3B5A),
+                blurRadius: 16,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: _kChipBg,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(Icons.info_outline, size: 18, color: _kBrand),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'A minimum of 40 hours must be completed to be eligible for the PP grade — 36 hours of NSS activities and 4 hours of Wellness activities.',
+                  style: rf(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w300,
+                    color: _kMuted,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+}
+
+class _ErrorCard extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorCard({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 80),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF5F5),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFFECACA), width: 1),
+        ),
+        child: Column(
+          children: [
+            const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 28),
+            const SizedBox(height: 10),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: rf(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF991B1B),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextButton(
+              onPressed: onRetry,
+              style: TextButton.styleFrom(
+                foregroundColor: _kBrand,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              child: Text(
+                'Try again',
+                style: rf(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: _kBrand,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
