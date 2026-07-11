@@ -18,4 +18,7 @@ class Routes {
   static String attbyEvent = "/attbyEvent";
   static String attbyRoll = "/attbyRoll";
   static String attbyDept = "/attbyDept";
+  static String forgotPassword = "/forgotPassword";
+  static String verifyOTP = "/verifyOTP";
+  static String resetPassword = "/resetPassword";
 }
