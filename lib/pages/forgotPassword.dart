@@ -1,10 +1,18 @@
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:nssapp/utils/routes.dart';
+import 'package:nssapp/widgets/login_form.dart'
+    show PillField, PillButton, rf;
+
+const Color _kBrand = Color(0xFF1A3B5A);
+const Color _kInk = Color(0xFF0F172A);
+const Color _kMuted = Color(0xFF6C757D);
+const Color _kBg = Color(0xFFF8F9FB);
+const Color _kChipBg = Color(0xFFEEF2F7);
 
 class ForgotPassword extends StatefulWidget {
   const ForgotPassword({super.key});
@@ -14,188 +22,134 @@ class ForgotPassword extends StatefulWidget {
 }
 
 class _ForgotPasswordState extends State<ForgotPassword> {
-  final _formKey = GlobalKey<FormState>();
-  final TextEditingController rollController = TextEditingController();
+  final _rollController = TextEditingController();
+  bool _loading = false;
 
-  bool loading = false;
+  @override
+  void dispose() {
+    _rollController.dispose();
+    super.dispose();
+  }
 
-  Future<void> sendOTP() async {
-    if (!_formKey.currentState!.validate()) return;
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
 
-    setState(() => loading = true);
-
+  Future<void> _sendOtp() async {
+    if (_loading) return;
+    final roll = _rollController.text.trim();
+    if (roll.isEmpty) {
+      _snack('Please enter your roll number.');
+      return;
+    }
+    setState(() => _loading = true);
     try {
       final response = await http.post(
         Uri.parse("${dotenv.env['BASE_URL']}/forgot-password"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"roll": rollController.text.trim()}),
+        headers: const {"Content-Type": "application/json"},
+        body: jsonEncode({"roll": roll}),
       );
-
       final data = jsonDecode(response.body);
-
       if (!mounted) return;
-      setState(() => loading = false);
-
       if (response.statusCode == 200 && data["status"] == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("OTP sent successfully")),
-        );
-
+        _snack('OTP sent successfully.');
         Navigator.pushReplacementNamed(
           context,
           Routes.verifyOTP,
-          arguments: rollController.text.trim(),
+          arguments: roll,
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data["message"] ?? "Unable to send OTP")),
-        );
+        _snack(data["message"] ?? 'Unable to send OTP.');
       }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => loading = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+    } catch (_) {
+      _snack("Couldn't reach the server. Please try again.");
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
-  void dispose() {
-    rollController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    const bg = Color(0xFFF9F4FA);
-    const card = Color(0xFFD7DDF3);
-    const field = Color(0xFFC6D0EC);
-    const primary = Color.fromARGB(255, 0, 75, 112);
-
     return Scaffold(
-      backgroundColor: bg,
+      backgroundColor: _kBg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _kBg,
         elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          "Forgot Password",
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w600,
-            color: primary,
-            fontFamily: "Raleway",
-          ),
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: _kInk),
         ),
+        title: Text(
+          'Forgot password',
+          style: rf(fontSize: 18, fontWeight: FontWeight.w600, color: _kInk),
+        ),
+        centerTitle: false,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                const SizedBox(height: 10),
-                const CircleAvatar(
-                  radius: 42,
-                  backgroundColor: card,
-                  child: Icon(Icons.lock_reset_rounded, size: 42, color: primary),
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: _kChipBg,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                const SizedBox(height: 20),
-                const Text(
-                  "Forgot your password?",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: "Raleway",
-                  ),
+                alignment: Alignment.center,
+                child: const Icon(Icons.lock_reset_rounded,
+                    color: _kBrand, size: 28),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Forgot your password?',
+                style: rf(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w500,
+                  color: _kInk,
+                  letterSpacing: -0.3,
                 ),
-                const SizedBox(height: 8),
-                const SizedBox(height: 30),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    color: card,
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Roll Number",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontFamily: "Raleway",
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      TextFormField(
-                        controller: rollController,
-                        textCapitalization: TextCapitalization.characters,
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: field,
-                          hintText: "Enter your Roll Number",
-                          prefixIcon: const Icon(Icons.badge_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: primary, width: 2),
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return "Please enter your roll number";
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "Enter your roll number and we'll send an OTP to your registered email.",
+                style: rf(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w300,
+                  color: _kMuted,
+                  height: 1.4,
                 ),
-                const SizedBox(height: 36),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: loading ? null : sendOTP,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: card,
-                      foregroundColor: primary,
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: loading
-                        ? const SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(strokeWidth: 3),
-                          )
-                        : const Text(
-                            "Send OTP",
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: "Raleway",
-                            ),
-                          ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 28),
+              PillField(
+                controller: _rollController,
+                hintText: 'Roll number',
+                prefixIcon: Icons.badge_outlined,
+                textInputAction: TextInputAction.done,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+                  LengthLimitingTextInputFormatter(10),
+                ],
+                onSubmitted: (_) => _sendOtp(),
+              ),
+              const SizedBox(height: 24),
+              PillButton(
+                label: 'Send OTP',
+                loading: _loading,
+                onPressed: _sendOtp,
+              ),
+            ],
           ),
         ),
       ),
