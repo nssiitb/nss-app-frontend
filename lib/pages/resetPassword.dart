@@ -47,14 +47,15 @@ class _ResetPasswordState extends State<ResetPassword> {
     setState(() => loading = true);
 
     try {
+      final String baseUrl = dotenv.env['API_URL'] ?? 'http://192.168.X.X:3000';
       final response = await http.post(
-        Uri.parse("${dotenv.env['BASE_URL']}/reset-password"),
+        Uri.parse("$baseUrl/reset-password"),
         headers: {
           "Content-Type": "application/json",
         },
         body: jsonEncode({
           "roll": roll,
-          "password": passwordController.text,
+          "password": passwordController.text.trim(),
         }),
       );
 

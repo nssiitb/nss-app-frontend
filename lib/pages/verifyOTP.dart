@@ -70,11 +70,15 @@ class _VerifyOTPState extends State<VerifyOTP> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => loading = true);
 
-    try {
-      final response = await http.post(
-        Uri.parse("${dotenv.env['BASE_URL']}/verify-otp"),
-        headers: {"Content-Type":"application/json"},
-        body: jsonEncode({"roll": roll, "otp": otpController.text.trim()}),
+   try {
+        final String baseUrl = dotenv.env['API_URL'] ?? 'http://192.168.X.X:3000'; // Nee exact IP pettu
+        final response = await http.post(
+        Uri.parse("$baseUrl/verify-otp"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+            "roll": roll, 
+            "otp": otpController.text.trim()
+        }),
       );
 
       final data=jsonDecode(response.body);

@@ -1,8 +1,9 @@
 import 'dart:convert';
-import 'package:nssapp/utils/routes.dart';
 import 'package:flutter/material.dart';
-import 'package:nssapp/services/api_service.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:nssapp/global/uuid.dart';
+import 'package:nssapp/pages/verifySignupOtp.dart'; // ✅ Added the missing semicolon here
 
 class RegistrationForm extends StatefulWidget {
   const RegistrationForm({super.key});
@@ -18,15 +19,15 @@ class _RegistrationFormState extends State<RegistrationForm> {
   String? phoneError;
   String? emailError;
   String? passError;
-  bool showDeptError = false;
+  String? confirmPassError;
 
   // Controllers
   final TextEditingController nameController = TextEditingController();
   final TextEditingController rollController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
-  final TextEditingController deptController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController = TextEditingController();
 
   // Dispose to prevent memory leaks
   @override
@@ -34,37 +35,65 @@ class _RegistrationFormState extends State<RegistrationForm> {
     nameController.dispose();
     rollController.dispose();
     phoneController.dispose();
-    deptController.dispose();
     emailController.dispose();
     passwordController.dispose();
+    confirmPasswordController.dispose();
     super.dispose();
   }
 
+  // ✅ The Single, Clean OTP Flow Function
   void registerUser() async {
-    String fingerprint = await DeviceIDHelper.getDeviceId();
+    try {
+      print("🚀 Validating and requesting OTP...");
+      String fingerprint = await DeviceIDHelper.getDeviceId();
 
-    var regBody = {
-      "roll": rollController.text,
-      "name": nameController.text,
-      "mobile": phoneController.text,
-      "dept": deptController.text,
-      "email": emailController.text,
-      "password": passwordController.text,
-      "fingerprint": fingerprint,
-    };
+      // Form data to carry forward to the next screen
+      var regBody = {
+        "roll": rollController.text.trim(),
+        "name": nameController.text.trim(),
+        "mobile": phoneController.text.trim(),
+        "email": emailController.text.trim(),
+        "password": passwordController.text.trim(),
+        "dept": "NA", // The smart bypass 😎
+        "fingerprint": fingerprint,
+      };
 
-    var response = await ApiService.register(regBody);
+      final String baseUrl = dotenv.env['API_URL'] ?? 'http://192.168.X.X:3000'; 
+      
+      // Requesting OTP from backend
+      var otpResponse = await http.post(
+        Uri.parse("$baseUrl/send-signup-otp"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "roll": rollController.text.trim(),
+          "email": emailController.text.trim()
+        }),
+      );
 
-    var jsonResponse = jsonDecode(response.body);
+      var otpJson = jsonDecode(otpResponse.body);
 
-    if (jsonResponse['status']) {
-      Navigator.pushNamed(context, Routes.loginRoute);
-    } else {
+      if (otpResponse.statusCode == 200 || otpJson['status'] == 200) {
+        print("✅ OTP Sent Successfully! Redirecting to Verify Page...");
+        // Redirect to Verify OTP Screen and pass the regBody
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VerifySignupOtpScreen(regData: regBody), 
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(otpJson['message'] ?? "Failed to send OTP."),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      print("🔥 CRASH IN SENDING OTP: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(jsonResponse['message'] ?? "Something went wrong."),
-          duration: const Duration(seconds: 3),
-        ),
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
       );
     }
   }
@@ -90,49 +119,6 @@ class _RegistrationFormState extends State<RegistrationForm> {
             borderRadius: BorderRadius.circular(10),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _dropdownField() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DropdownButtonFormField<String>(
-            value: deptController.text.isEmpty ? null : deptController.text,
-            items: const [
-              DropdownMenuItem(value: 'CE', child: Text('Campus Engagement')),
-              DropdownMenuItem(value: 'EO', child: Text('Educational Outreach')),
-              DropdownMenuItem(value: 'SD', child: Text('Social Development')),
-              DropdownMenuItem(
-                  value: 'EnS', child: Text('Environment and Sustainabilty')),
-            ],
-            onChanged: (val) {
-              setState(() {
-                deptController.text = val ?? '';
-                showDeptError = false;
-              });
-            },
-            decoration: InputDecoration(
-              hintText: "Select Department",
-              labelText: "Department",
-              labelStyle: const TextStyle(fontSize: 18),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
-          if (showDeptError)
-            const Padding(
-              padding: EdgeInsets.only(top: 8, left: 12),
-              child: Text(
-                "Please select a department",
-                style: TextStyle(color: Colors.red, fontSize: 12),
-              ),
-            ),
-        ],
       ),
     );
   }
@@ -173,8 +159,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
       if (email.isEmpty) {
         emailError = "Please enter your email";
         isValid = false;
-      } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-          .hasMatch(email)) {
+      } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
         emailError = "Please enter a valid email address";
         isValid = false;
       } else {
@@ -192,12 +177,15 @@ class _RegistrationFormState extends State<RegistrationForm> {
         passError = null;
       }
 
-      // Department validation
-      if (deptController.text.isEmpty) {
-        showDeptError = true;
+      // Confirm Password validation
+      if (confirmPasswordController.text.isEmpty) {
+        confirmPassError = "Please confirm your password";
+        isValid = false;
+      } else if (confirmPasswordController.text != passwordController.text) {
+        confirmPassError = "Passwords do not match";
         isValid = false;
       } else {
-        showDeptError = false;
+        confirmPassError = null;
       }
     });
     return isValid;
@@ -238,7 +226,6 @@ class _RegistrationFormState extends State<RegistrationForm> {
             errorText: phoneError,
             keyboardType: TextInputType.phone,
           ),
-          _dropdownField(),
           _textField(
             controller: emailController,
             label: "Email",
@@ -251,30 +238,36 @@ class _RegistrationFormState extends State<RegistrationForm> {
             errorText: passError,
             obscureText: true,
           ),
+          _textField(
+            controller: confirmPasswordController,
+            label: "Confirm Password",
+            errorText: confirmPassError,
+            obscureText: true,
+          ),
           const SizedBox(height: 30),
           SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFDADFEF),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  elevation: 3,
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDADFEF),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5),
                 ),
-                onPressed: validateAndSubmit,
-                child: const Text(
-                  'Sign Up',
-                  style: TextStyle(
-                    fontFamily: 'Raleway',
-                    fontWeight: FontWeight.w500,
-                    fontSize: 20,
-                    color: Color(0xFF506680),
-                  ),
+                elevation: 3,
+              ),
+              onPressed: validateAndSubmit,
+              child: const Text(
+                'Verify Email',
+                style: TextStyle(
+                  fontFamily: 'Raleway',
+                  fontWeight: FontWeight.w500,
+                  fontSize: 20,
+                  color: Color(0xFF506680),
                 ),
               ),
             ),
+          ),
         ],
       ),
     );

@@ -26,7 +26,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
 
     try {
       final response = await http.post(
-        Uri.parse("${dotenv.env['BASE_URL']}/forgot-password"),
+        Uri.parse('${dotenv.env['API_URL'] ?? "http://192.168.X.X:3000"}/forgot-password'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"roll": rollController.text.trim()}),
       );
