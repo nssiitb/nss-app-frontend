@@ -1,7 +1,15 @@
-import 'package:flutter/material.dart';
-import 'package:nssapp/services/api_service.dart';
-import 'package:intl/intl.dart';
 import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:nssapp/services/api_service.dart';
+import 'package:nssapp/widgets/login_form.dart' show rf;
+
+const Color _kBrand = Color(0xFF1A3B5A);
+const Color _kInk = Color(0xFF0F172A);
+const Color _kMuted = Color(0xFF6C757D);
+const Color _kBg = Color(0xFFF8F9FB);
+const Color _kChipBg = Color(0xFFEEF2F7);
 
 class Allevents extends StatefulWidget {
   const Allevents({super.key});
@@ -11,242 +19,360 @@ class Allevents extends StatefulWidget {
 }
 
 class _AlleventsState extends State<Allevents> {
-  List<Map<String, dynamic>> activities = [];
-  bool _isLoading = true;
+  List<Map<String, dynamic>> _events = [];
+  bool _loading = true;
+  String _error = '';
 
   @override
   void initState() {
     super.initState();
-    fetchActivities();
+    _fetch();
   }
 
-  Future<void> fetchActivities() async {
+  Future<void> _fetch() async {
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
     try {
       final res = await ApiService.getAllEvents();
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
-        final events = data['events'] as List;
-
+        final events = (data['events'] as List?) ?? const [];
         events.sort((a, b) {
-          final dateA = DateTime.tryParse(a['date'] ?? '');
-          final dateB = DateTime.tryParse(b['date'] ?? '');
-          if (dateA == null && dateB == null) return 0;
-          if (dateA == null) {
-            return 1;
-          }
-          if (dateB == null) return -1;
-          return dateA.compareTo(dateB);
+          final da = DateTime.tryParse(a['date'] ?? '');
+          final db = DateTime.tryParse(b['date'] ?? '');
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return da.compareTo(db);
         });
-
-        if (mounted) {
-          setState(() {
-            activities =
-                events.map((e) => Map<String, dynamic>.from(e)).toList();
-            _isLoading = false;
-          });
-        }
-      } else {
-        // Handle server errors
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-        print("Error fetching data: ${res.statusCode}");
-      }
-    } catch (e) {
-      // Handle network or other errors
-      if (mounted) {
+        if (!mounted) return;
         setState(() {
-          _isLoading = false;
+          _events = events.map((e) => Map<String, dynamic>.from(e)).toList();
+          _loading = false;
+        });
+      } else {
+        if (!mounted) return;
+        setState(() {
+          _error = 'Failed to load events (${res.statusCode}).';
+          _loading = false;
         });
       }
-      print("Error: $e");
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = "Couldn't reach the server. Pull to refresh.";
+        _loading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Use a light grey background for better contrast with the white cards
-      backgroundColor: const Color(0xFFF4F7F9),
+      backgroundColor: _kBg,
       appBar: AppBar(
-        title: const Text(
-          "All Events",
-          style: TextStyle(
-            fontFamily: 'Raleway',
-            fontWeight: FontWeight.bold,
-          ),
+        backgroundColor: _kBg,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: _kInk),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF101828),
-        elevation: 1, // Subtle shadow for the app bar
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : activities.isEmpty
-              ? Center(
+        title: Text(
+          'All events',
+          style: rf(fontSize: 18, fontWeight: FontWeight.w600, color: _kInk),
+        ),
+        actions: [
+          if (!_loading && _error.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: _kChipBg,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                   child: Text(
-                    "No events found.",
-                    style: TextStyle(
-                      fontFamily: 'Raleway',
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
+                    '${_events.length}',
+                    style: rf(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _kBrand,
                     ),
                   ),
-                )
-              : ListView.builder(
-                  // Add padding to the list itself
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  itemCount: activities.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    final Map<String, dynamic> event = activities[index];
-                    final rawDate = event['date'];
-                    // DateTime converts date saved to UTC which is -5:30 from IST
-                    final parsedDate = DateTime.tryParse(rawDate ?? '')
-                        ?.add(const Duration(hours: 5, minutes: 30));
-
-                    // Date formatting for the card
-                    final day = parsedDate != null
-                        ? DateFormat('d').format(parsedDate)
-                        : '';
-                    final month = parsedDate != null
-                        ? DateFormat('MMM').format(parsedDate).toUpperCase()
-                        : '';
-
-                    return Container(
-                      // Use symmetric margin for consistent spacing
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 16.0, vertical: 8.0),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Date Section
-                            Container(
-                              width: 60,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: const Color(
-                                    0xFFF0F4FF), // Light blue accent
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    day,
-                                    style: const TextStyle(
-                                      fontFamily: 'Raleway',
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 26,
-                                      color: Color(0xFF344055),
-                                    ),
-                                  ),
-                                  Text(
-                                    month,
-                                    style: const TextStyle(
-                                      fontFamily: 'Raleway',
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                      color: Color(0xFF344055),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            // Details Section
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    event['name'] ?? 'Untitled Event',
-                                    style: const TextStyle(
-                                      fontFamily: 'Raleway',
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                      color: Color(0xFF101828),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    event['dept'] ?? 'No Department',
-                                    style: const TextStyle(
-                                      fontFamily: 'Raleway',
-                                      fontWeight: FontWeight.w500,
-                                      fontSize: 14,
-                                      color: Color(0xFF667085),
-                                    ),
-                                  ),
-                                  const Divider(height: 24, thickness: 1),
-                                  _EventDetailRow(
-                                    icon: Icons.access_time_rounded,
-                                    text: "Time: ${event['time'] ?? 'N/A'}",
-                                  ),
-                                  _EventDetailRow(
-                                    icon: Icons.hourglass_bottom_rounded,
-                                    text: "Hours: ${event['hours'] ?? '0'}",
-                                  ),
-                                  // Conditionally show remarks if they exist
-                                  if (event['remarks'] != null &&
-                                      event['remarks'].isNotEmpty)
-                                    _EventDetailRow(
-                                      icon: Icons.comment_outlined,
-                                      text: event['remarks'],
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
                 ),
+              ),
+            ),
+        ],
+      ),
+      body: SafeArea(
+        child: RefreshIndicator(
+          color: _kBrand,
+          onRefresh: _fetch,
+          child: _body(),
+        ),
+      ),
+    );
+  }
+
+  Widget _body() {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(color: _kBrand, strokeWidth: 2.4),
+      );
+    }
+    if (_error.isNotEmpty) {
+      return ListView(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
+            child: _errorCard(),
+          ),
+        ],
+      );
+    }
+    if (_events.isEmpty) {
+      return ListView(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 80),
+            child: _emptyState(),
+          ),
+        ],
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      itemCount: _events.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (_, i) => _EventCard(event: _events[i]),
+    );
+  }
+
+  Widget _emptyState() {
+    return Column(
+      children: [
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: _kChipBg,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Icon(Icons.event_busy_outlined,
+              color: _kBrand, size: 28),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'No events yet',
+          style: rf(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: _kInk,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'New events will show up here as they are scheduled.',
+          textAlign: TextAlign.center,
+          style: rf(
+            fontSize: 13,
+            fontWeight: FontWeight.w300,
+            color: _kMuted,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _errorCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF5F5),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFFECACA), width: 1),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 26),
+          const SizedBox(height: 10),
+          Text(
+            _error,
+            textAlign: TextAlign.center,
+            style: rf(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: const Color(0xFF991B1B),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: _fetch,
+            child: Text(
+              'Try again',
+              style: rf(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: _kBrand,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// Helper widget to keep the main build method clean
-class _EventDetailRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _EventDetailRow({required this.icon, required this.text});
+class _EventCard extends StatelessWidget {
+  final Map<String, dynamic> event;
+  const _EventCard({required this.event});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+    final rawDate = event['date']?.toString() ?? '';
+    final parsed = DateTime.tryParse(rawDate)
+        ?.add(const Duration(hours: 5, minutes: 30));
+    final day = parsed != null ? DateFormat('d').format(parsed) : '—';
+    final month =
+        parsed != null ? DateFormat('MMM').format(parsed).toUpperCase() : '';
+
+    final name = event['name']?.toString() ?? 'Untitled event';
+    final dept = event['department']?.toString() ??
+        event['dept']?.toString() ??
+        '';
+    final time = event['time']?.toString() ?? '';
+    final hours = event['hours']?.toString() ?? '';
+    final remarks = event['remarks']?.toString() ?? '';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F1A3B5A),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.grey.shade600, size: 16),
-          const SizedBox(width: 8),
-          // Use Expanded to allow text to wrap gracefully
+          Container(
+            width: 56,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: _kChipBg,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  day,
+                  style: rf(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                    color: _kBrand,
+                    height: 1,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  month,
+                  style: rf(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: _kBrand,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
           Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontFamily: 'Raleway',
-                color: Colors.grey.shade800,
-                fontSize: 14,
-                height: 1.4, // Improved line spacing for readability
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: rf(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: _kInk,
+                  ),
+                ),
+                if (remarks.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    remarks,
+                    style: rf(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w300,
+                      color: _kMuted,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 6,
+                  children: [
+                    if (dept.isNotEmpty)
+                      _MetaChip(
+                          icon: Icons.apartment_outlined, label: dept),
+                    if (time.isNotEmpty)
+                      _MetaChip(
+                          icon: Icons.schedule_outlined, label: time),
+                    if (hours.isNotEmpty)
+                      _MetaChip(
+                        icon: Icons.timelapse_outlined,
+                        label: '$hours ${hours == "1" ? "hr" : "hrs"}',
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _MetaChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: _kChipBg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: _kBrand),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: rf(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: _kBrand,
             ),
           ),
         ],

@@ -1,6 +1,23 @@
-import 'package:flutter/material.dart';
 import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:nssapp/services/api_service.dart';
+import 'package:nssapp/widgets/login_form.dart'
+    show PillField, PillButton, rf;
+
+const Color _kBrand = Color(0xFF1A3B5A);
+const Color _kInk = Color(0xFF0F172A);
+const Color _kMuted = Color(0xFF6C757D);
+const Color _kBg = Color(0xFFF8F9FB);
+const Color _kChipBg = Color(0xFFEEF2F7);
+
+const List<_Dept> _kDepartments = [
+  _Dept('CE', 'Campus Engagement'),
+  _Dept('EO', 'Educational Outreach'),
+  _Dept('SD', 'Social Development'),
+  _Dept('EnS', 'Environment and Sustainability'),
+];
 
 class AddEvents extends StatefulWidget {
   const AddEvents({super.key});
@@ -10,205 +27,272 @@ class AddEvents extends StatefulWidget {
 }
 
 class _AddEventsState extends State<AddEvents> {
-  final _formKey = GlobalKey<FormState>();
-  final nameController = TextEditingController();
-  final hoursController = TextEditingController();
-  final aaController = TextEditingController();
-  final remarksController = TextEditingController();
-  final dateController = TextEditingController();
-  final timeController = TextEditingController();
+  final _name = TextEditingController();
+  final _hours = TextEditingController();
+  final _aa = TextEditingController();
+  final _remarks = TextEditingController();
 
-  String? selectedDepartment;
-  DateTime? selectedDate;
-  TimeOfDay? selectedTime;
+  DateTime? _date;
+  TimeOfDay? _time;
+  _Dept? _department;
 
-  final List<String> departments = [
-    "Campus Engagement",
-    "Educational Outreach",
-    "Social Development",
-    "Environment & Sustainability",
-  ];
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _hours.dispose();
+    _aa.dispose();
+    _remarks.dispose();
+    super.dispose();
+  }
+
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: _date ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: _kBrand,
+            onPrimary: Colors.white,
+            surface: Colors.white,
+            onSurface: _kInk,
+          ),
+        ),
+        child: child!,
+      ),
     );
-    if (picked != null) {
-      setState(() => selectedDate = picked);
-      dateController.text =
-          "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
-    }
+    if (picked != null) setState(() => _date = picked);
   }
 
   Future<void> _pickTime() async {
     final picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: _time ?? TimeOfDay.now(),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: _kBrand,
+            onPrimary: Colors.white,
+            surface: Colors.white,
+            onSurface: _kInk,
+          ),
+        ),
+        child: child!,
+      ),
     );
-    if (picked != null) {
-      setState(() => selectedTime = picked);
-      final now = DateTime.now();
-      final dt =
-          DateTime(now.year, now.month, now.day, picked.hour, picked.minute);
-      timeController.text =
-          "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:00";
+    if (picked != null) setState(() => _time = picked);
+  }
+
+  String _dateLabel() => _date == null
+      ? 'Pick a date'
+      : '${_date!.year}-${_date!.month.toString().padLeft(2, '0')}-${_date!.day.toString().padLeft(2, '0')}';
+
+  String _timeLabel() {
+    if (_time == null) return 'Pick a time';
+    final h = _time!.hour.toString().padLeft(2, '0');
+    final m = _time!.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  bool _validate() {
+    if (_name.text.trim().isEmpty) {
+      _snack('Please enter an event name.');
+      return false;
+    }
+    if (_date == null) {
+      _snack('Pick a date.');
+      return false;
+    }
+    if (_time == null) {
+      _snack('Pick a time.');
+      return false;
+    }
+    final hrs = int.tryParse(_hours.text.trim());
+    if (hrs == null || hrs <= 0) {
+      _snack('Enter valid hours.');
+      return false;
+    }
+    if (_aa.text.trim().isEmpty) {
+      _snack("Enter the Activity Associate's roll.");
+      return false;
+    }
+    if (_department == null) {
+      _snack('Select a department.');
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _save() async {
+    if (_submitting) return;
+    if (!_validate()) return;
+    setState(() => _submitting = true);
+    try {
+      final body = {
+        'name': _name.text.trim(),
+        'date':
+            '${_date!.year}-${_date!.month.toString().padLeft(2, '0')}-${_date!.day.toString().padLeft(2, '0')}',
+        'time':
+            '${_time!.hour.toString().padLeft(2, '0')}:${_time!.minute.toString().padLeft(2, '0')}:00',
+        'hours': _hours.text.trim(),
+        'AA': _aa.text.trim(),
+        'remarks': _remarks.text.trim(),
+        'department': _department!.label,
+      };
+      final res = await ApiService.addEvent(body);
+      final json = jsonDecode(res.body);
+      _snack(json['message']?.toString() ?? 'Event saved.');
+      if (mounted &&
+          (res.statusCode == 200 || res.statusCode == 201)) {
+        _clear();
+      }
+    } catch (_) {
+      _snack("Couldn't reach the server. Please try again.");
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
-  void _clearFields() {
+  void _clear() {
     setState(() {
-      nameController.clear();
-      dateController.clear();
-      timeController.clear();
-      hoursController.clear();
-      aaController.clear();
-      remarksController.clear();
-      selectedDepartment = null;
-      selectedDate = null;
-      selectedTime = null;
+      _name.clear();
+      _hours.clear();
+      _aa.clear();
+      _remarks.clear();
+      _date = null;
+      _time = null;
+      _department = null;
     });
-  }
-
-  void saveEvent() async {
-    var reqBody = {
-      "name": nameController.text,
-      "date": dateController.text,
-      "time": timeController.text,
-      "hours": hoursController.text,
-      "AA": aaController.text,
-      "remarks": remarksController.text,
-      "department": selectedDepartment ?? "",
-    };
-    var response = await ApiService.addEvent(reqBody);
-
-    var jsonResponse = jsonDecode(response.body);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(jsonResponse['message'] ?? "Unknown response"),
-        duration: const Duration(seconds: 3),
-      ),
-    );
-    _clearFields();
-  }
-
-  InputDecoration _inputDecoration(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: const TextStyle(
-        color: Color(0xFF344055),
-        fontWeight: FontWeight.w500,
-      ),
-      prefixIcon: Icon(icon, color: const Color(0xFF344055)),
-      filled: true,
-      fillColor: const Color(0xFFC7E4F8), // Light blue pastel
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _kBg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _kBg,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF344055)),
-        title: const Text(
-          "Create a new Event",
-          style: TextStyle(
-            color: Color(0xFF344055),
-            fontWeight: FontWeight.bold,
-          ),
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: _kInk),
         ),
+        title: Text(
+          'New event',
+          style: rf(fontSize: 18, fontWeight: FontWeight.w600, color: _kInk),
+        ),
+        centerTitle: false,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(25),
-        child: Form(
-          key: _formKey,
-          child: ListView(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextFormField(
-                controller: nameController,
-                decoration: _inputDecoration("Event Name", Icons.event_note),
-              ),
-              const SizedBox(height: 18),
-              TextFormField(
-                controller: dateController,
-                readOnly: true,
-                decoration: _inputDecoration("Date", Icons.calendar_today),
-                onTap: _pickDate,
-              ),
-              const SizedBox(height: 18),
-              TextFormField(
-                controller: timeController,
-                readOnly: true,
-                decoration: _inputDecoration("Time", Icons.access_time),
-                onTap: _pickTime,
-              ),
-              const SizedBox(height: 18),
-              TextFormField(
-                controller: hoursController,
-                keyboardType: TextInputType.number,
-                decoration: _inputDecoration("Hours", Icons.timer),
-              ),
-              const SizedBox(height: 18),
-              TextFormField(
-                controller: aaController,
-                decoration:
-                    _inputDecoration("Activity Associates", Icons.people_alt),
-              ),
-              const SizedBox(height: 18),
-              DropdownButtonFormField<String>(
-                value: selectedDepartment,
-                items: departments
-                    .map((dept) => DropdownMenuItem(
-                          value: dept,
-                          child: Text(dept),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedDepartment = value;
-                  });
-                },
-                decoration: _inputDecoration("Department", Icons.apartment),
-              ),
-              const SizedBox(height: 18),
-              TextFormField(
-                controller: remarksController,
-                maxLines: 3,
-                decoration:
-                    _inputDecoration("Description", Icons.description_outlined)
-                        .copyWith(hintText: "Add details..."),
+              const SizedBox(height: 8),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: _kChipBg,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(Icons.add_circle_outline,
+                    color: _kBrand, size: 28),
               ),
               const SizedBox(height: 20),
-              SizedBox(
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: saveEvent,
-                  icon: const Icon(Icons.add, color: Color(0xFF344055)),
-                  label: const Text(
-                    "Create Event",
-                    style: TextStyle(
-                      color: Color(0xFF344055),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF9C9D4), // Pink pastel
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+              Text(
+                'Create a new event',
+                style: rf(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w500,
+                  color: _kInk,
+                  letterSpacing: -0.3,
                 ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Volunteers will see this on their calendar.',
+                style: rf(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w300,
+                  color: _kMuted,
+                ),
+              ),
+              const SizedBox(height: 28),
+              PillField(
+                controller: _name,
+                hintText: 'Event name',
+                prefixIcon: Icons.event_outlined,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _tapField(
+                      icon: Icons.calendar_today_outlined,
+                      label: _dateLabel(),
+                      dim: _date == null,
+                      onTap: _pickDate,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _tapField(
+                      icon: Icons.access_time_outlined,
+                      label: _timeLabel(),
+                      dim: _time == null,
+                      onTap: _pickTime,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              PillField(
+                controller: _hours,
+                hintText: 'Hours',
+                prefixIcon: Icons.timelapse_outlined,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(3),
+                ],
+              ),
+              const SizedBox(height: 16),
+              PillField(
+                controller: _aa,
+                hintText: 'Activity Associate roll',
+                prefixIcon: Icons.person_outline,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+                  LengthLimitingTextInputFormatter(10),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _deptDropdown(),
+              const SizedBox(height: 16),
+              _multilineField(),
+              const SizedBox(height: 28),
+              PillButton(
+                label: 'Create Event',
+                loading: _submitting,
+                onPressed: _save,
               ),
             ],
           ),
@@ -216,4 +300,181 @@ class _AddEventsState extends State<AddEvents> {
       ),
     );
   }
+
+  Widget _tapField({
+    required IconData icon,
+    required String label,
+    required bool dim,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(32),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0F1A3B5A),
+              blurRadius: 16,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: _kMuted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: rf(
+                  fontSize: 15,
+                  fontWeight: dim ? FontWeight.w300 : FontWeight.w400,
+                  color: dim ? _kMuted : _kInk,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _deptDropdown() {
+    return SizedBox(
+      height: 56,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(32),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0F1A3B5A),
+              blurRadius: 16,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<_Dept>(
+              value: _department,
+              isExpanded: true,
+              isDense: true,
+              icon: const Icon(Icons.keyboard_arrow_down, color: _kMuted),
+              dropdownColor: Colors.white,
+              elevation: 6,
+              borderRadius: BorderRadius.circular(20),
+              hint: Row(
+                children: [
+                  const Icon(Icons.apartment_outlined,
+                      size: 20, color: _kMuted),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Department',
+                    style: rf(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w300,
+                      color: _kMuted,
+                    ),
+                  ),
+                ],
+              ),
+              style:
+                  rf(fontSize: 15, fontWeight: FontWeight.w400, color: _kInk),
+              selectedItemBuilder: (ctx) => _kDepartments
+                  .map((d) => Row(
+                        children: [
+                          const Icon(Icons.apartment_outlined,
+                              size: 20, color: _kBrand),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              d.label,
+                              overflow: TextOverflow.ellipsis,
+                              style: rf(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w400,
+                                color: _kInk,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ))
+                  .toList(),
+              items: _kDepartments
+                  .map((d) => DropdownMenuItem<_Dept>(
+                        value: d,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Text(
+                            d.label,
+                            style: rf(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w400,
+                              color: _kInk,
+                            ),
+                          ),
+                        ),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() => _department = v),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _multilineField() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F1A3B5A),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: TextField(
+        controller: _remarks,
+        maxLines: 4,
+        minLines: 3,
+        maxLength: 200,
+        style: rf(fontSize: 15, fontWeight: FontWeight.w400, color: _kInk),
+        cursorColor: _kBrand,
+        decoration: InputDecoration(
+          hintText: 'Description (optional)…',
+          hintStyle: rf(
+            fontSize: 15,
+            fontWeight: FontWeight.w300,
+            color: _kMuted,
+          ),
+          counterStyle: rf(
+            fontSize: 11,
+            fontWeight: FontWeight.w300,
+            color: _kMuted,
+          ),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+        ),
+      ),
+    );
+  }
+}
+
+class _Dept {
+  final String code;
+  final String label;
+  const _Dept(this.code, this.label);
 }
