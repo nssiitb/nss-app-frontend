@@ -1,14 +1,10 @@
-
 import 'dart:convert';
-
+import '../services/api_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
 import 'package:nssapp/utils/routes.dart';
 
 class ForgotPassword extends StatefulWidget {
   const ForgotPassword({super.key});
-
   @override
   State<ForgotPassword> createState() => _ForgotPasswordState();
 }
@@ -21,43 +17,45 @@ class _ForgotPasswordState extends State<ForgotPassword> {
 
   Future<void> sendOTP() async {
     if (!_formKey.currentState!.validate()) return;
-
+    final roll = rollController.text.trim().toUpperCase();
     setState(() => loading = true);
-
     try {
-      final response = await http.post(
-        Uri.parse("${dotenv.env['BASE_URL']}/forgot-password"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"roll": rollController.text.trim()}),
-      );
-
+      final response = await ApiService.forgotPassword({
+        "roll": roll,
+        "mode": "reset",
+      });
       final data = jsonDecode(response.body);
-
       if (!mounted) return;
-      setState(() => loading = false);
-
       if (response.statusCode == 200 && data["status"] == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("OTP sent successfully")),
         );
-
         Navigator.pushReplacementNamed(
           context,
           Routes.verifyOTP,
-          arguments: rollController.text.trim(),
+          arguments: {
+            "mode": "reset",
+            "roll": rollController.text.trim().toUpperCase(),
+          },
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data["message"] ?? "Unable to send OTP")),
+          SnackBar(
+            content: Text(data["message"] ?? "Unable to send OTP"),
+          ),
         );
       }
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
-      setState(() => loading = false);
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
+        const SnackBar(
+          content: Text("Unable to connect to the server. Please try again."),
+        ),
       );
+    } finally {
+      if (mounted) {
+        setState(() => loading = false);
+      }
     }
   }
 
@@ -79,16 +77,6 @@ class _ForgotPasswordState extends State<ForgotPassword> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          "Forgot Password",
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w600,
-            color: primary,
-            fontFamily: "Raleway",
-          ),
-        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(

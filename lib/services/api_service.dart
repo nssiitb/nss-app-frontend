@@ -156,4 +156,12 @@ class ApiService {
       headers: await _authHeaders(),
     );
   }
+
+  static Future<http.Response> forgotPassword(dynamic body) async {
+    return await http.post(
+      Uri.parse('$baseURL/forgot-password'),
+      headers: _headers,
+      body: jsonEncode(body),
+    );
+  }
 }

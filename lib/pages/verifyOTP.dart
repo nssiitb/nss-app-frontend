@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:nssapp/utils/routes.dart';
+import 'package:nssapp/services/api_service.dart';
 
 class VerifyOTP extends StatefulWidget {
   const VerifyOTP({super.key});
@@ -18,6 +19,8 @@ class _VerifyOTPState extends State<VerifyOTP> {
 
   bool loading = false;
   late String roll;
+  late String mode;
+  late Map<String, dynamic> args;
   Timer? _timer;
   int secondsLeft = 300;
   @override
@@ -63,7 +66,9 @@ class _VerifyOTPState extends State<VerifyOTP> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    roll = ModalRoute.of(context)!.settings.arguments as String;
+    args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    mode = args["mode"];
+    roll = args["roll"];
   }
 
   Future<void> verifyOTP() async {
@@ -86,11 +91,40 @@ class _VerifyOTPState extends State<VerifyOTP> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("OTP verified successfully")),
         );
-        Navigator.pushReplacementNamed(
-          context,
-          Routes.resetPassword,
-          arguments: roll,
-        );
+        if(mode == "reset"){
+          Navigator.pushReplacementNamed(
+            context,
+            Routes.resetPassword,
+            arguments: roll,
+          );
+        } else{
+          final response = await ApiService.register({
+            "roll": args["roll"],
+            "name": args["name"],
+            "mobile": args["mobile"],
+            "email": args["email"],
+            "password": args["password"],
+            "fingerprint": args["fingerprint"],
+          });
+
+          final json = jsonDecode(response.body);
+
+          if (json["status"]) {
+            if (!mounted) return;
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Registration successful"),
+              ),
+            );
+
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              Routes.loginRoute,
+              (_) => false,
+            );
+          }
+        }
       }else{
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(data["message"] ?? "Invalid OTP")),
@@ -106,16 +140,20 @@ class _VerifyOTPState extends State<VerifyOTP> {
   }
 
   Future<void> resendOTP() async{
-    await http.post(
-      Uri.parse("${dotenv.env['BASE_URL']}/forgot-password"),
-      headers: {"Content-Type":"application/json"},
-      body: jsonEncode({"roll": roll}),
-    );
+    final response = await ApiService.forgotPassword({
+    "roll": roll,
+    });
 
     if(!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("OTP sent again")),
-    );
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("OTP sent again")),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to resend OTP")),
+      );
+    }
   }
 
 
@@ -131,16 +169,6 @@ class _VerifyOTPState extends State<VerifyOTP> {
       appBar:AppBar(
         backgroundColor: Colors.white,
         elevation:0,
-        centerTitle:true,
-        title: const Text(
-          "Verify OTP",
-          style: TextStyle(
-            fontSize:28,
-            fontWeight:FontWeight.w600,
-            color:primary,
-            fontFamily:"Raleway",
-          ),
-        ),
       ),
       body:SafeArea(
         child:SingleChildScrollView(

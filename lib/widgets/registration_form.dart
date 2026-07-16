@@ -18,15 +18,15 @@ class _RegistrationFormState extends State<RegistrationForm> {
   String? phoneError;
   String? emailError;
   String? passError;
-  bool showDeptError = false;
+  String? confirmPassError;
 
   // Controllers
   final TextEditingController nameController = TextEditingController();
   final TextEditingController rollController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
-  final TextEditingController deptController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController = TextEditingController();
 
   // Dispose to prevent memory leaks
   @override
@@ -34,41 +34,46 @@ class _RegistrationFormState extends State<RegistrationForm> {
     nameController.dispose();
     rollController.dispose();
     phoneController.dispose();
-    deptController.dispose();
     emailController.dispose();
     passwordController.dispose();
+    confirmPasswordController.dispose();
     super.dispose();
   }
 
-  void registerUser() async {
+  Future<void> sendSignupOTP() async {
     String fingerprint = await DeviceIDHelper.getDeviceId();
 
-    var regBody = {
-      "roll": rollController.text,
-      "name": nameController.text,
-      "mobile": phoneController.text,
-      "dept": deptController.text,
-      "email": emailController.text,
-      "password": passwordController.text,
-      "fingerprint": fingerprint,
-    };
+    final response = await ApiService.forgotPassword({
+      "roll": rollController.text.trim(),
+      "mode": "signup",
+  });
 
-    var response = await ApiService.register(regBody);
+    final json = jsonDecode(response.body);
 
-    var jsonResponse = jsonDecode(response.body);
+    if (json["status"] == 200) {
+      if (!mounted) return;
 
-    if (jsonResponse['status']) {
-      Navigator.pushNamed(context, Routes.loginRoute);
+      Navigator.pushNamed(
+        context,
+        Routes.verifyOTP,
+        arguments: {
+          "mode": "signup",
+          "name": nameController.text.trim(),
+          "roll": rollController.text.trim(),
+          "mobile": phoneController.text.trim(),
+          "email": emailController.text.trim(),
+          "password": passwordController.text,
+          "fingerprint": fingerprint,
+        },
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(jsonResponse['message'] ?? "Something went wrong."),
-          duration: const Duration(seconds: 3),
+          content: Text(json["message"] ?? "Unable to send OTP"),
         ),
       );
     }
   }
-
   Widget _textField({
     required TextEditingController controller,
     required String label,
@@ -90,49 +95,6 @@ class _RegistrationFormState extends State<RegistrationForm> {
             borderRadius: BorderRadius.circular(10),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _dropdownField() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DropdownButtonFormField<String>(
-            value: deptController.text.isEmpty ? null : deptController.text,
-            items: const [
-              DropdownMenuItem(value: 'CE', child: Text('Campus Engagement')),
-              DropdownMenuItem(value: 'EO', child: Text('Educational Outreach')),
-              DropdownMenuItem(value: 'SD', child: Text('Social Development')),
-              DropdownMenuItem(
-                  value: 'EnS', child: Text('Environment and Sustainabilty')),
-            ],
-            onChanged: (val) {
-              setState(() {
-                deptController.text = val ?? '';
-                showDeptError = false;
-              });
-            },
-            decoration: InputDecoration(
-              hintText: "Select Department",
-              labelText: "Department",
-              labelStyle: const TextStyle(fontSize: 18),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
-          if (showDeptError)
-            const Padding(
-              padding: EdgeInsets.only(top: 8, left: 12),
-              child: Text(
-                "Please select a department",
-                style: TextStyle(color: Colors.red, fontSize: 12),
-              ),
-            ),
-        ],
       ),
     );
   }
@@ -191,13 +153,14 @@ class _RegistrationFormState extends State<RegistrationForm> {
       } else {
         passError = null;
       }
-
-      // Department validation
-      if (deptController.text.isEmpty) {
-        showDeptError = true;
+      if (confirmPasswordController.text.isEmpty) {
+        confirmPassError = "Please confirm your password";
+        isValid = false;
+      } else if (confirmPasswordController.text != passwordController.text) {
+        confirmPassError = "Passwords do not match";
         isValid = false;
       } else {
-        showDeptError = false;
+        confirmPassError = null;
       }
     });
     return isValid;
@@ -205,14 +168,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
 
   void validateAndSubmit() {
     if (_validateForm()) {
-      registerUser();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please fix the errors in the form."),
-          duration: Duration(seconds: 2),
-        ),
-      );
+      sendSignupOTP();
     }
   }
 
@@ -238,7 +194,6 @@ class _RegistrationFormState extends State<RegistrationForm> {
             errorText: phoneError,
             keyboardType: TextInputType.phone,
           ),
-          _dropdownField(),
           _textField(
             controller: emailController,
             label: "Email",
@@ -249,6 +204,12 @@ class _RegistrationFormState extends State<RegistrationForm> {
             controller: passwordController,
             label: "Password",
             errorText: passError,
+            obscureText: true,
+          ),
+          _textField(
+            controller: confirmPasswordController,
+            label: "Confirm Password",
+            errorText: confirmPassError,
             obscureText: true,
           ),
           const SizedBox(height: 30),
