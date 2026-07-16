@@ -1,9 +1,7 @@
 import 'dart:convert';
-import '../services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:http/http.dart' as http;
+import '../services/api_service.dart';
 import 'package:nssapp/utils/routes.dart';
 import 'package:nssapp/widgets/login_form.dart'
     show PillField, PillButton, rf;
@@ -43,18 +41,17 @@ class _ForgotPasswordState extends State<ForgotPassword> {
 
   Future<void> _sendOtp() async {
     if (_loading) return;
-    final roll = _rollController.text.trim();
-    if (roll.isEmpty) {
+    final _roll = _rollController.text.trim().toUpperCase();
+    if (_roll.isEmpty) {
       _snack('Please enter your roll number.');
       return;
     }
     setState(() => _loading = true);
     try {
-      final response = await http.post(
-        Uri.parse("${dotenv.env['BASE_URL']}/forgot-password"),
-        headers: const {"Content-Type": "application/json"},
-        body: jsonEncode({"roll": roll}),
-      );
+      final response = await ApiService.forgotPassword({
+        "roll": _roll,
+        "mode": "reset",
+      });
       final data = jsonDecode(response.body);
       if (!mounted) return;
       if (response.statusCode == 200 && data["status"] == 200) {
@@ -62,7 +59,10 @@ class _ForgotPasswordState extends State<ForgotPassword> {
         Navigator.pushReplacementNamed(
           context,
           Routes.verifyOTP,
-          arguments: roll,
+          arguments: {
+            "mode": "reset",
+            "roll": _roll,
+          },
         );
       } else {
         _snack(data["message"] ?? 'Unable to send OTP.');
@@ -86,11 +86,6 @@ class _ForgotPasswordState extends State<ForgotPassword> {
           onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: _kInk),
         ),
-        title: Text(
-          'Forgot password',
-          style: rf(fontSize: 18, fontWeight: FontWeight.w600, color: _kInk),
-        ),
-        centerTitle: false,
       ),
       body: SafeArea(
         child: SingleChildScrollView(

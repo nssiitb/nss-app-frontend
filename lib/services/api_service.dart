@@ -34,7 +34,6 @@ class ApiService {
     );
   }
 
-
   // Dashboard & Hours
   // static Future<http.Response> getCompletedHours(String roll) async {
   //   return await http.post(
@@ -161,6 +160,14 @@ class ApiService {
   static Future<http.Response> forgotPassword(dynamic body) async {
     return await http.post(
       Uri.parse('$baseURL/forgot-password'),
+      headers: _headers,
+      body: jsonEncode(body),
+    );
+  }
+
+  static Future<http.Response> verifyOTP(dynamic body) async {
+    return await http.post(
+      Uri.parse('$baseURL/verify-otp'),
       headers: _headers,
       body: jsonEncode(body),
     );

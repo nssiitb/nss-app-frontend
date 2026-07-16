@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:nssapp/utils/routes.dart';
-import 'package:nssapp/widgets/login_form.dart'
-    show PillField, PillButton, rf;
+import 'package:nssapp/services/api_service.dart';
+import 'package:nssapp/widgets/login_form.dart' show PillField, PillButton, rf;
 
 const Color _kBrand = Color(0xFF1A3B5A);
 const Color _kInk = Color(0xFF0F172A);
@@ -25,35 +24,50 @@ class VerifyOTP extends StatefulWidget {
 
 class _VerifyOTPState extends State<VerifyOTP> {
   final _otpController = TextEditingController();
+  late Map<String, dynamic> args;
   bool _loading = false;
   bool _resending = false;
   late String _roll;
+  late String _mode;
   Timer? _timer;
   int _secondsLeft = 300;
+  bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (!mounted) return;
-      if (_secondsLeft == 0) {
-        t.cancel();
-        _snack('OTP expired. Please request a new one.');
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          Routes.forgotPassword,
-          (_) => false,
-        );
-        return;
-      }
-      setState(() => _secondsLeft--);
-    });
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _roll = ModalRoute.of(context)!.settings.arguments as String;
+    if (_initialized) return;
+    _initialized = true;
+    args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    _mode = args["mode"];
+    _roll = args["roll"];
+    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) return;
+      if (_secondsLeft == 0) {
+        t.cancel();
+        _snack('OTP expired. Please request a new one.');
+        if (_mode == "signup") {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            Routes.signUpRoute,
+            (_) => false,
+          );
+        } else {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            Routes.loginRoute,
+            (_) => false,
+          );
+        }
+        return;
+      }
+      setState(() => _secondsLeft--);
+    });
   }
 
   @override
@@ -83,42 +97,66 @@ class _VerifyOTPState extends State<VerifyOTP> {
     }
     setState(() => _loading = true);
     try {
-      final res = await http.post(
-        Uri.parse("${dotenv.env['BASE_URL']}/verify-otp"),
-        headers: const {"Content-Type": "application/json"},
-        body: jsonEncode({"roll": _roll, "otp": otp}),
-      );
-      final data = jsonDecode(res.body);
-      if (!mounted) return;
-      if (res.statusCode == 200 && data["status"] == 200) {
-        _snack('OTP verified.');
-        Navigator.pushReplacementNamed(
-          context,
-          Routes.resetPassword,
-          arguments: _roll,
-        );
+      final response = await ApiService.verifyOTP({
+          "roll": _roll,
+          "otp": otp,
+      });
+      final data=jsonDecode(response.body);
+      if(!mounted) return;
+      if(response.statusCode==200 && data["status"]==200){
+        _snack("OTP verified!");
+        if(_mode == "reset"){
+          Navigator.pushReplacementNamed(
+            context,
+            Routes.resetPassword,
+            arguments: _roll,
+          );
+        } else{
+          final response = await ApiService.register({
+            "roll": args["roll"],
+            "name": args["name"],
+            "mobile": args["mobile"],
+            "email": args["email"],
+            "password": args["password"],
+            "fingerprint": args["fingerprint"],
+          });
+          final json = jsonDecode(response.body);
+          if (json["status"]) {
+            if (!mounted) return;
+            _snack("Registration successful!");
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              Routes.loginRoute,
+              (_) => false,
+            );
+          }
+        }
       } else {
         _snack(data["message"] ?? 'Invalid OTP.');
       }
-    } catch (_) {
+    } catch(_) {
       _snack("Couldn't reach the server. Please try again.");
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _resend() async {
+  Future<void> _resend() async{
     if (_resending) return;
     setState(() => _resending = true);
     try {
-      await http.post(
-        Uri.parse("${dotenv.env['BASE_URL']}/forgot-password"),
-        headers: const {"Content-Type": "application/json"},
-        body: jsonEncode({"roll": _roll}),
-      );
+      final response = await ApiService.forgotPassword({
+        "roll": _roll,
+        "mode": _mode,
+      });
+      final json = jsonDecode(response.body);
       if (!mounted) return;
-      setState(() => _secondsLeft = 300);
-      _snack('A new OTP has been sent.');
+      if (response.statusCode == 200 && json["status"] == 200) {
+        setState(() => _secondsLeft = 300);
+        _snack("A new OTP has been sent.");
+      } else {
+        _snack(json["message"] ?? "Unable to resend OTP.");
+      }
     } catch (_) {
       _snack("Couldn't reach the server. Please try again.");
     } finally {

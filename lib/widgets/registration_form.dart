@@ -27,12 +27,13 @@ class _RegistrationFormState extends State<RegistrationForm> {
   final nameController = TextEditingController();
   final rollController = TextEditingController();
   final phoneController = TextEditingController();
-  final deptController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
 
   bool _loading = false;
-  bool _obscure = true;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
@@ -46,7 +47,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
   }
 
   void _snack(String msg) {
-    if (!mounted) return;
+    if(!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
@@ -56,7 +57,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
     );
   }
 
-  Future<void> _register() async {
+  Future<void> sendSignupOTP() async {
     if (_loading) return;
     if (!_validateForm()) {
       _snack("Please fix the errors above.");
@@ -65,22 +66,31 @@ class _RegistrationFormState extends State<RegistrationForm> {
     setState(() => _loading = true);
     try {
       final fingerprint = await DeviceIDHelper.getDeviceId();
-      final regBody = {
-        "roll": rollController.text.trim(),
-        "name": nameController.text.trim(),
-        "mobile": phoneController.text.trim(),
-        "dept": deptController.text,
-        "email": emailController.text.trim(),
-        "password": passwordController.text,
-        "fingerprint": fingerprint,
-      };
-      final response = await ApiService.register(regBody);
-      final jsonResponse = jsonDecode(response.body);
-      _snack(jsonResponse['message'] ?? "Something went wrong.");
-      if (jsonResponse['status'] == true && mounted) {
-        Navigator.pushReplacementNamed(context, Routes.loginRoute);
+      final response = await ApiService.forgotPassword({
+        "roll": rollController.text.trim().toUpperCase(),
+        "mode": "signup",
+      });
+      final json = jsonDecode(response.body);
+      if (!mounted) return;
+      if (json["status"] == 200) {
+        Navigator.pushNamed(
+          context,
+          Routes.verifyOTP,
+          arguments: {
+            "mode": "signup",
+            "name": nameController.text.trim(),
+            "roll": rollController.text.trim().toUpperCase(),
+            "mobile": phoneController.text.trim(),
+            "email": emailController.text.trim(),
+            "password": passwordController.text,
+            "fingerprint": fingerprint,
+          },
+        );
+      } else {
+        _snack(json["message"] ?? "Unable to send OTP");
       }
     } catch (_) {
+      if (!mounted) return;
       _snack("Couldn't reach the server. Please try again.");
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -139,14 +149,23 @@ class _RegistrationFormState extends State<RegistrationForm> {
         passError = null;
       }
 
-      if (deptController.text.isEmpty) {
-        showDeptError = true;
+      if (confirmPasswordController.text.isEmpty) {
+        confirmPassError = "Please confirm your password";
+        isValid = false;
+      } else if (confirmPasswordController.text != passwordController.text) {
+        confirmPassError = "Passwords do not match";
         isValid = false;
       } else {
         confirmPassError = null;
       }
     });
     return isValid;
+  }
+
+  void validateAndSubmit() {
+    if (_validateForm()) {
+      sendSignupOTP();
+    }
   }
 
   @override
@@ -188,8 +207,6 @@ class _RegistrationFormState extends State<RegistrationForm> {
             ],
           ),
           const SizedBox(height: 16),
-          _deptDropdown(),
-          const SizedBox(height: 16),
           PillField(
             controller: emailController,
             hintText: 'Email',
@@ -204,163 +221,50 @@ class _RegistrationFormState extends State<RegistrationForm> {
             hintText: 'Password',
             prefixIcon: Icons.lock_outline,
             errorText: passError,
-            obscureText: _obscure,
+            obscureText: _obscurePassword,
             autofillHints: const [AutofillHints.newPassword],
             suffix: IconButton(
               padding: EdgeInsets.zero,
               icon: Icon(
-                _obscure
+                _obscurePassword
                     ? Icons.visibility_outlined
                     : Icons.visibility_off_outlined,
                 color: _kMuted,
                 size: 20,
               ),
-              onPressed: () => setState(() => _obscure = !_obscure),
+              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+            ),
+          ),
+          const SizedBox(height: 16),
+          PillField(
+            controller: confirmPasswordController,
+            hintText: 'Confirm Password',
+            prefixIcon: Icons.lock_outline,
+            errorText: confirmPassError,
+            obscureText: _obscureConfirmPassword,
+            autofillHints: const [AutofillHints.newPassword],
+            suffix: IconButton(
+              padding: EdgeInsets.zero,
+              icon: Icon(
+                _obscureConfirmPassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+                color: _kMuted,
+                size: 20,
+              ),
+              onPressed: () => setState(
+                () => _obscureConfirmPassword = !_obscureConfirmPassword,
+              ),
             ),
           ),
           const SizedBox(height: 32),
           PillButton(
             label: 'Create Account',
             loading: _loading,
-            onPressed: _register,
+            onPressed: sendSignupOTP,
           ),
         ],
       ),
-    );
-  }
-
-  Widget _deptDropdown() {
-    const items = <_DeptOption>[
-      _DeptOption('CE', 'Campus Engagement'),
-      _DeptOption('EO', 'Educational Outreach'),
-      _DeptOption('SD', 'Social Development'),
-      _DeptOption('EnS', 'Environment and Sustainability'),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          // Match PillField rendered height: 18 (top pad) + 20 (line height) + 18 (bottom pad) ≈ 56.
-          height: 56,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(32),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0F1A3B5A),
-                  blurRadius: 16,
-                  offset: Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: deptController.text.isEmpty
-                      ? null
-                      : deptController.text,
-                  isExpanded: true,
-                  isDense: true,
-                  icon: const Icon(Icons.keyboard_arrow_down, color: _kMuted),
-                  dropdownColor: Colors.white,
-                  elevation: 6,
-                  borderRadius: BorderRadius.circular(20),
-                  menuMaxHeight: 320,
-                  hint: Row(
-                    children: [
-                      const Icon(Icons.apartment_outlined,
-                          size: 20, color: _kMuted),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Select department',
-                        style: rf(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w300,
-                          color: _kMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                  style: rf(
-                      fontSize: 15, fontWeight: FontWeight.w400, color: _kInk),
-                  selectedItemBuilder: (context) => items
-                      .map((o) => _DeptRow(
-                          icon: Icons.apartment_outlined, text: o.label))
-                      .toList(),
-                  items: items
-                      .map(
-                        (o) => DropdownMenuItem<String>(
-                          value: o.value,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            child: Text(
-                              o.label,
-                              style: rf(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w400,
-                                color: _kInk,
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      deptController.text = val ?? '';
-                      showDeptError = false;
-                    });
-                  },
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (showDeptError)
-          Padding(
-            padding: const EdgeInsets.only(left: 20, top: 6),
-            child: Text(
-              'Please select a department',
-              style: rf(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFFDC2626),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _DeptOption {
-  final String value;
-  final String label;
-  const _DeptOption(this.value, this.label);
-}
-
-class _DeptRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  const _DeptRow({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: _kMuted),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            overflow: TextOverflow.ellipsis,
-            style: rf(fontSize: 15, fontWeight: FontWeight.w400, color: _kInk),
-          ),
-        ),
-      ],
     );
   }
 }
