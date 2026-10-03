@@ -146,6 +146,21 @@ class ApiService {
     );
   }
 
+  // AI ASSUMPTION:
+// Backend route needs to be implemented.
+
+static Future<http.Response> getAttendanceByEvent(
+  String eventName,
+) async {
+  return await http.post(
+    Uri.parse('$baseURL/attByEvent'),
+    headers: await _authHeaders(),
+    body: jsonEncode({
+      "event": eventName,
+    }),
+  );
+}
+
   // Volunteers
   // static Future<http.Response> getAllVolunteers() async {
   //   return await http.get(Uri.parse('$baseURL/sendVolunteers'));
