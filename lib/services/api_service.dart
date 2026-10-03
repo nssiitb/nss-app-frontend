@@ -145,6 +145,13 @@ class ApiService {
       body: jsonEncode({"roll": roll}),
     );
   }
+  static Future<http.Response> getAttendanceByDepartment(String dept) async {
+    return await http.post(
+      Uri.parse('$baseURL/attByDept'),
+      headers: await _authHeaders(),
+      body: jsonEncode({"dept": dept}),
+   );
+  }
 
   // Volunteers
   // static Future<http.Response> getAllVolunteers() async {
