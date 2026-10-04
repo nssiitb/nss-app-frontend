@@ -29,11 +29,19 @@ class _ResetPasswordState extends State<ResetPassword> {
   bool _obscureNew = true;
   bool _obscureConfirm = true;
   late String _roll;
+  bool _isAa = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _roll = ModalRoute.of(context)!.settings.arguments as String;
+    final args = ModalRoute.of(context)!.settings.arguments;
+    if (args is Map) {
+      _roll = args["roll"];
+      _isAa = args["is_aa"] ?? false;
+    } else {
+      _roll = args as String;
+      _isAa = false;
+    }
   }
 
   @override
@@ -75,9 +83,13 @@ class _ResetPasswordState extends State<ResetPassword> {
     setState(() => _loading = true);
     try {
       final res = await http.post(
-        Uri.parse("${dotenv.env['BASE_URL']}/reset-password"),
+        Uri.parse("Uri.parse("${dotenv.env['BASE_URL']}/reset-password")"),
         headers: const {"Content-Type": "application/json"},
-        body: jsonEncode({"roll": _roll, "password": pw}),
+        body: jsonEncode({
+          "roll": _roll, 
+          "password": pw,
+          "is_aa": _isAa, 
+        }),
       );
       final data = jsonDecode(res.body);
       if (!mounted) return;
@@ -91,7 +103,9 @@ class _ResetPasswordState extends State<ResetPassword> {
       } else {
         _snack(data["message"] ?? 'Unable to reset password.');
       }
-    } catch (_) {
+    } catch (e, stackTrace) {
+      print("RESET PASSWORD ERROR IN APP: $e");
+      print(stackTrace);
       _snack("Couldn't reach the server. Please try again.");
     } finally {
       if (mounted) setState(() => _loading = false);
