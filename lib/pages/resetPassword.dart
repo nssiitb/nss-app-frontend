@@ -83,7 +83,7 @@ class _ResetPasswordState extends State<ResetPassword> {
     setState(() => _loading = true);
     try {
       final res = await http.post(
-        Uri.parse("http://127.0.0.1:3000/reset-password"),
+        Uri.parse("${dotenv.env['BASE_URL']}/reset-password"),
         headers: const {"Content-Type": "application/json"},
         body: jsonEncode({
           "roll": _roll, 
