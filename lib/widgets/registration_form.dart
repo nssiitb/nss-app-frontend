@@ -32,14 +32,6 @@ class _RegistrationFormState extends State<RegistrationForm> {
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
 
-  String? selectedDept;
-  final List<String> departments = [
-    'Environment and Sustainability',
-    'Social Development',
-    'Educational Outreach',
-    'Campus Engagement',
-  ];
-
   bool _loading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -92,7 +84,6 @@ class _RegistrationFormState extends State<RegistrationForm> {
             "mobile": phoneController.text.trim(),
             "email": emailController.text.trim(),
             "password": passwordController.text,
-            "dept": selectedDept, // Ikkada department kooda backend/OTP verify ki vellipotundi!
             "fingerprint": fingerprint,
           },
         );
@@ -144,13 +135,6 @@ class _RegistrationFormState extends State<RegistrationForm> {
         isValid = false;
       } else {
         emailError = null;
-      }
-
-      if (selectedDept == null) {
-        deptError = "Please select a department";
-        isValid = false;
-      } else {
-        deptError = null;
       }
 
       final pw = passwordController.text;
@@ -231,39 +215,6 @@ class _RegistrationFormState extends State<RegistrationForm> {
             errorText: emailError,
             keyboardType: TextInputType.emailAddress,
             autofillHints: const [AutofillHints.email],
-          ),
-          const SizedBox(height: 16),
-          // Department Dropdown Selection Field
-          DropdownButtonFormField<String>(
-            value: selectedDept,
-            decoration: InputDecoration(
-              hintText: 'Select Department',
-              prefixIcon: const Icon(Icons.group_outlined, color: _kMuted, size: 20),
-              errorText: deptError,
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(30),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(30),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            ),
-            items: departments.map((String dept) {
-              return DropdownMenuItem<String>(
-                value: dept,
-                child: Text(dept, style: const TextStyle(fontSize: 14, color: _kInk)),
-              );
-            }).toList(),
-            onChanged: (String? newValue) {
-              setState(() {
-                selectedDept = newValue;
-                deptError = null;
-              });
-            },
           ),
           const SizedBox(height: 16),
           PillField(

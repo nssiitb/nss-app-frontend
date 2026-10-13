@@ -24,12 +24,12 @@ class _AppDrawerState extends State<AppDrawer> {
   Map<String, dynamic>? _user;
 
   @override
-  void initState() {
-    super.initState();
-    _authService.getToken().then((data) {
-      if (mounted) setState(() => _user = data);
-    });
-  }
+void initState() {
+  super.initState();
+  _authService.getToken().then((data) {
+    if (mounted) setState(() => _user = data);
+  });
+}
 
   Future<void> _handleLogout() async {
     await _authService.logout();
@@ -44,24 +44,25 @@ class _AppDrawerState extends State<AppDrawer> {
     }
   }
 
-  List<Widget> _navItems(BuildContext context, {required bool isAA}) {
+  List<Widget> _navItems(BuildContext context, {required bool isAA, required bool isCTM}) {
     void go(String route) {
       Navigator.pop(context);
       Navigator.pushNamed(context, route);
     }
-
     final items = <Widget>[
       _DrawerItem(
         icon: Icons.person_outline,
         label: 'Profile',
         onTap: () => go(Routes.profileRoute),
       ),
-      if (isAA) ...[
+      if (isCTM) ...[
         _DrawerItem(
           icon: Icons.add_circle_outline,
           label: 'Add Event',
           onTap: () => go(Routes.addEvent),
         ),
+      ],
+      if (isAA) ...[
         _DrawerItem(
           icon: Icons.event_note_outlined,
           label: 'All Events',
@@ -125,8 +126,15 @@ class _AppDrawerState extends State<AppDrawer> {
   Widget build(BuildContext context) {
     final name = _user?['name']?.toString() ?? 'User';
     final roll = _user?['roll']?.toString() ?? '';
-    final role = (_user?['isaa'] == true) ? 'AA' : 'Volunteer';
+    final isAA = _user?['isaa'] == true;
+    final isCTM = _user?['isctm'] == true || _user?['isctm'] == 1;
 
+    String roleLabel = 'Volunteer';
+    if (isCTM) {
+      roleLabel = 'CTM';
+    } else if (isAA) {
+      roleLabel = 'AA';  
+    }
     return Drawer(
       backgroundColor: _kBg,
       shape: const RoundedRectangleBorder(
@@ -158,7 +166,7 @@ class _AppDrawerState extends State<AppDrawer> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    roll.isEmpty ? role : '$roll  ·  $role',
+                    roll.isEmpty ? roleLabel : '$roll  ·  $roleLabel',
                     style: rf(
                       fontSize: 13,
                       fontWeight: FontWeight.w300,
@@ -173,7 +181,7 @@ class _AppDrawerState extends State<AppDrawer> {
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                children: _navItems(context, isAA: _user?['isaa'] == true),
+                children: _navItems(context, isAA: isAA, isCTM: isCTM),
               ),
             ),
             Container(height: 1, color: _kBorder),
@@ -190,7 +198,7 @@ class _AppDrawerState extends State<AppDrawer> {
         ),
       ),
     );
-  }
+  } // <--- Tarvatha AA check pettu
 }
 
 class _DrawerItem extends StatefulWidget {
