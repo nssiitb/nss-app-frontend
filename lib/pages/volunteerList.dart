@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'package:nssapp/pages/volunteer_details_edit.dart';
 import 'package:flutter/material.dart';
 import 'package:nssapp/services/api_service.dart';
 import 'package:nssapp/widgets/login_form.dart' show rf;
@@ -310,7 +310,37 @@ class _VolunteerlistState extends State<Volunteerlist> {
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
       itemCount: _filtered.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (_, i) => _VolunteerCard(volunteer: _filtered[i]),
+      itemBuilder: (_, i) {
+        final v = _filtered[i];
+        return _VolunteerCard(
+          volunteer: v,
+          onTap: () async {
+            // Convert Volunteer object to Map for edit page
+            final volunteerMap = {
+              'roll': v.roll,
+              'name': v.name,
+              'mobile': v.mobile,
+              'dept': v.dept,
+              'email': v.email,
+              'hours': v.hours,
+            };
+
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VolunteerDetailEditPage(
+                  volunteer: volunteerMap,
+                ),
+              ),
+            );
+
+            // If save or delete happened, refresh list automatically! 🔥
+            if (result == true) {
+              _fetch();
+            }
+          },
+        );
+      },
     );
   }
 
@@ -391,7 +421,12 @@ class _VolunteerlistState extends State<Volunteerlist> {
 
 class _VolunteerCard extends StatelessWidget {
   final Volunteer volunteer;
-  const _VolunteerCard({required this.volunteer});
+  final VoidCallback onTap; 
+
+  const _VolunteerCard({
+    required this.volunteer,
+    required this.onTap,   
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -399,7 +434,10 @@ class _VolunteerCard extends StatelessWidget {
         volunteer.name.isNotEmpty ? volunteer.name[0].toUpperCase() : 'V';
     final deptName =
         _kDeptNames[volunteer.dept] ?? volunteer.dept;
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -476,6 +514,8 @@ class _VolunteerCard extends StatelessWidget {
           ),
         ],
       ),
+      )
     );
+    
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nssapp/widgets/HomeVolunteer.dart';
 import 'package:nssapp/widgets/HomeAA.dart';
+import 'package:nssapp/widgets/HomeCTM.dart';
 import 'package:nssapp/utils/authenticator.dart';
 
 class Home extends StatelessWidget {
@@ -17,10 +18,17 @@ class Home extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
         final data = snapshot.data!;
-        final isaa = data["isaa"] == true;
-        return isaa
-            ? Homeaa(name: data["name"] ?? "User")
-            : Homevolunteer(name: data["name"] ?? "User");
+        final isCTM = data["isctm"] == true || data["isctm"] == 1;
+        final isaa = data["isaa"] == true || data["isaa"] == 1;
+        
+        // Priority order: CTM -> AA -> Volunteer
+        if (isCTM) {
+          return HomeCTM(name: data["name"] ?? "User");
+        } else if (isaa) {
+          return HomeAA(name: data["name"] ?? "User");
+        } else {
+          return HomeVolunteer(name: data["name"] ?? "User");
+        }
       },
     );
   }

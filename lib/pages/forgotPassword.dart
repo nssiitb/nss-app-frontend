@@ -21,6 +21,7 @@ class ForgotPassword extends StatefulWidget {
 class _ForgotPasswordState extends State<ForgotPassword> {
   final _rollController = TextEditingController();
   bool _loading = false;
+  bool _isAA = false;
 
   @override
   void dispose() {
@@ -51,6 +52,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
       final response = await ApiService.forgotPassword({
         "roll": _roll,
         "mode": "reset",
+        "is_aa": _isAA,
       });
       final data = jsonDecode(response.body);
       if (!mounted) return;
@@ -62,6 +64,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
           arguments: {
             "mode": "reset",
             "roll": _roll,
+            "is_aa": _isAA,
           },
         );
       } else {
@@ -137,7 +140,21 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                 ],
                 onSubmitted: (_) => _sendOtp(),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 8),
+              // --- AA Checkbox Start ---
+              CheckboxListTile(
+                value: _isAA,
+                onChanged: (val) => setState(() => _isAA = val ?? false),
+                title: Text(
+                  'Change AA Password',
+                  style: rf(fontSize: 14, fontWeight: FontWeight.w500, color: _kInk),
+                ),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                activeColor: _kBrand,
+              ),
+              // --- AA Checkbox End ---
+              const SizedBox(height: 8),
               PillButton(
                 label: 'Send OTP',
                 loading: _loading,

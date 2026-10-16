@@ -14,15 +14,15 @@ const Color _kBg = Color(0xFFF8F9FB);
 const Color _kChipBg = Color(0xFFEEF2F7);
 const Color _kBorder = Color(0xFFE9ECEF);
 
-class Homeaa extends StatefulWidget {
+class HomeAA extends StatefulWidget {
   final String name;
-  const Homeaa({super.key, required this.name});
+  const HomeAA({super.key, required this.name});
 
   @override
-  State<Homeaa> createState() => _HomeaaState();
+  State<HomeAA> createState() => _HomeAAState();
 }
 
-class _HomeaaState extends State<Homeaa> {
+class _HomeAAState extends State<HomeAA> {
   bool _starting = false;
 
   void _snack(String msg) {
@@ -136,20 +136,6 @@ class _HomeaaState extends State<Homeaa> {
                 childAspectRatio: 0.95,
                 children: [
                   _TileCard(
-                    icon: Icons.add_circle_outline,
-                    title: 'Add Event',
-                    subtitle: 'Schedule a new activity',
-                    onTap: () =>
-                        Navigator.pushNamed(context, Routes.addEvent),
-                  ),
-                  _TileCard(
-                    icon: Icons.event_note_outlined,
-                    title: 'All Events',
-                    subtitle: 'This month',
-                    onTap: () =>
-                        Navigator.pushNamed(context, Routes.allEvents),
-                  ),
-                  _TileCard(
                     icon: Icons.group_outlined,
                     title: 'Volunteer List',
                     subtitle: 'Roster & departments',
@@ -162,6 +148,20 @@ class _HomeaaState extends State<Homeaa> {
                     subtitle: 'Records & lookups',
                     onTap: () =>
                         Navigator.pushNamed(context, Routes.fetchAtt),
+                  ),
+                  _TileCard(
+                    icon: Icons.event_note_outlined,
+                    title: 'Calendar',
+                    subtitle: 'Show all Activities in Calendar',
+                    onTap: () =>
+                        Navigator.pushNamed(context, Routes.calendarRoute),
+                  ),
+                  _TileCard(
+                    icon: Icons.event_note_outlined,
+                    title: 'All Events',
+                    subtitle: 'This month',
+                    onTap: () =>
+                        Navigator.pushNamed(context, Routes.allEvents),
                   ),
                 ],
               ),

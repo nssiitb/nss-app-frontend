@@ -23,6 +23,7 @@ class _RegistrationFormState extends State<RegistrationForm> {
   String? emailError;
   String? passError;
   String? confirmPassError;
+  String? deptError;
 
   final nameController = TextEditingController();
   final rollController = TextEditingController();

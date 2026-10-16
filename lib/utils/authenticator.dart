@@ -19,6 +19,7 @@ class AuthService {
     String? tokenString = prefs.getString(_userKey);
 
     if (tokenString != null) {
+      final decoded = jsonDecode(tokenString);
       return jsonDecode(tokenString);
     }
     return null;

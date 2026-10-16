@@ -9,7 +9,8 @@ const Color _kInk = Color(0xFF0F172A);
 const Color _kMuted = Color(0xFF6C757D);
 const Color _kBg = Color(0xFFF8F9FB);
 const Color _kChipBg = Color(0xFFEEF2F7);
-const int _kTotalHours = 40;
+const int _kTotalHours = 34;
+const int _kTargetHours = 28;
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -89,7 +90,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     final hours = _completedHours ?? 0;
     final progress = (hours / _kTotalHours).clamp(0.0, 1.0);
-    final remaining = (_kTotalHours - hours).clamp(0, _kTotalHours);
+    final remaining = (_kTargetHours - hours).clamp(0, _kTargetHours);
 
     return Scaffold(
       backgroundColor: _kBg,
@@ -264,7 +265,7 @@ class _Content extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'A minimum of 40 hours must be completed to be eligible for the PP grade — 36 hours of NSS activities and 4 hours of Wellness activities.',
+                  'A minimum of 80% must be completed to be eligible for the PP grade out of 34 hours of NSS activities.',
                   style: rf(
                     fontSize: 13,
                     fontWeight: FontWeight.w300,

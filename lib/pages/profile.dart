@@ -56,6 +56,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final deptCode = _user?['dept']?.toString() ?? '';
     final deptLabel = _kDeptNames[deptCode] ?? deptCode;
     final isAA = _user?['isaa'] == true;
+    final isCTM = _user?['isctm'] == true || _user?['isctm'] == 1;
 
     return Scaffold(
       backgroundColor: _kBg,
@@ -83,7 +84,7 @@ class _ProfilePageState extends State<ProfilePage> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
               children: [
-                _Header(name: name, isAA: isAA),
+                _Header(name: name, isAA: isAA, isCTM: isCTM),
                 const SizedBox(height: 32),
                 Padding(
                   padding: const EdgeInsets.only(left: 4, bottom: 12),
@@ -135,7 +136,8 @@ class _ProfilePageState extends State<ProfilePage> {
 class _Header extends StatelessWidget {
   final String name;
   final bool isAA;
-  const _Header({required this.name, required this.isAA});
+  final bool isCTM;
+  const _Header({required this.name, required this.isAA,required this.isCTM});
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +187,7 @@ class _Header extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
-            isAA ? 'AA' : 'Volunteer',
+            isCTM ? 'CTM' : (isAA ? 'AA':"'Volunteer"),
             style: rf(
               fontSize: 12,
               fontWeight: FontWeight.w500,

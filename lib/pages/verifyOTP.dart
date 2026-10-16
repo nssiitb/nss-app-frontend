@@ -88,7 +88,7 @@ class _VerifyOTPState extends State<VerifyOTP> {
     );
   }
 
-  Future<void> _verify() async {
+ Future<void> _verify() async {
     if (_loading) return;
     final otp = _otpController.text.trim();
     if (otp.length != 6) {
@@ -109,15 +109,28 @@ class _VerifyOTPState extends State<VerifyOTP> {
           Navigator.pushReplacementNamed(
             context,
             Routes.resetPassword,
-            arguments: _roll,
+            arguments: {
+              "roll": _roll,
+              "is_aa": args["is_aa"] ?? false,
+            },
           );
         } else{
+          // Department short-form mapping dictionary
+          final Map<String, String> deptCodeMap = {
+            'Environment and Sustainability': 'ens',
+            'Social Development': 'sd',
+            'Educational Outreach': 'eo',
+            'Campus Engagement': 'ce',
+          };
+
           final response = await ApiService.register({
             "roll": args["roll"],
             "name": args["name"],
             "mobile": args["mobile"],
             "email": args["email"],
             "password": args["password"],
+            // Full name vasthe shortcode ki convert chesthundi, లేకపోతే aade veltundi
+            "dept": deptCodeMap[args["dept"]] ?? args["dept"], 
             "fingerprint": args["fingerprint"],
           });
           final json = jsonDecode(response.body);

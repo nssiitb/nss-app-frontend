@@ -13,17 +13,18 @@ const Color _kMuted = Color(0xFF6C757D);
 const Color _kBg = Color(0xFFF8F9FB);
 const Color _kChipBg = Color(0xFFEEF2F7);
 const Color _kBorder = Color(0xFFE9ECEF);
-const int _kHoursTarget = 40;
+const int _kHoursTotal = 34;
+const int _kHoursTarget = 28;
 
-class Homevolunteer extends StatefulWidget {
+class HomeVolunteer extends StatefulWidget {
   final String name;
-  const Homevolunteer({super.key, required this.name});
+  const HomeVolunteer({super.key, required this.name});
 
   @override
-  State<Homevolunteer> createState() => _HomevolunteerState();
+  State<HomeVolunteer> createState() => _HomeVolunteerState();
 }
 
-class _HomevolunteerState extends State<Homevolunteer> {
+class _HomeVolunteerState extends State<HomeVolunteer> {
   int? _completedHours;
   bool _hoursLoading = true;
 
@@ -114,6 +115,7 @@ class _HomevolunteerState extends State<Homevolunteer> {
                 _HoursCard(
                   completed: _completedHours,
                   target: _kHoursTarget,
+                  total:_kHoursTotal,
                   loading: _hoursLoading,
                   onTap: () =>
                       Navigator.pushNamed(context, Routes.dashboardpage),
@@ -215,12 +217,14 @@ class _CircleIconButton extends StatelessWidget {
 class _HoursCard extends StatelessWidget {
   final int? completed;
   final int target;
+  final int total;
   final bool loading;
   final VoidCallback onTap;
 
   const _HoursCard({
     required this.completed,
     required this.target,
+    required this.total,
     required this.loading,
     required this.onTap,
   });
@@ -228,7 +232,7 @@ class _HoursCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hours = completed ?? 0;
-    final progress = (hours / target).clamp(0.0, 1.0);
+    final progress = (hours / total).clamp(0.0, 1.0);
     final remaining = (target - hours).clamp(0, target);
     final percent = (progress * 100).round();
 
@@ -376,7 +380,7 @@ class _HoursCard extends StatelessWidget {
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
                                   child: Text(
-                                    '/ $target hrs',
+                                    '/ $total hrs',
                                     style: rf(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w300,
