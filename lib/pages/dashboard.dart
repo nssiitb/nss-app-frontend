@@ -23,16 +23,19 @@ class _DashboardPageState extends State<DashboardPage> {
   final AuthService _authService = AuthService();
 
   int? _completedHours;
+  List<dynamic> _events = [];
   bool _isLoading = true;
   String _errorMessage = '';
+  String _selectedSem = 'Autumn-2026';
+  final List<String> _availableSems = ['Autumn-2026', 'Spring-2026'];
 
   @override
   void initState() {
     super.initState();
-    _fetchCompletedHours();
+    _fetchProgressData();
   }
 
-  Future<void> _fetchCompletedHours() async {
+  Future<void> _fetchProgressData() async {
     setState(() {
       _isLoading = true;
       _errorMessage = '';
@@ -49,21 +52,23 @@ class _DashboardPageState extends State<DashboardPage> {
         return;
       }
 
-      final res =
-          await ApiService.getCompletedHours(userData['roll'].toString());
+      final roll = userData['roll'].toString();
+      final res = await ApiService.getVolunteerProgress(roll, sem: _selectedSem);
+
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
-        if (body['status'] == true && body['hours'] != null) {
+        if (body['success'] == true) {
           if (mounted) {
             setState(() {
-              _completedHours = (body['hours'] as num).toInt();
+              _completedHours = (body['completedHours'] as num?)?.toInt() ?? 0;
+              _events = body['events'] ?? [];
               _isLoading = false;
             });
           }
         } else {
           if (mounted) {
             setState(() {
-              _errorMessage = body['message']?.toString() ?? 'Failed to load hours.';
+              _errorMessage = body['message']?.toString() ?? 'Failed to load progress.';
               _isLoading = false;
             });
           }
@@ -76,7 +81,8 @@ class _DashboardPageState extends State<DashboardPage> {
           });
         }
       }
-    } catch (_) {
+    } catch (e) {
+      print(">>> DASHBOARD ERROR: $e");
       if (mounted) {
         setState(() {
           _errorMessage = "Couldn't reach the server. Pull to refresh.";
@@ -115,10 +121,10 @@ class _DashboardPageState extends State<DashboardPage> {
       body: SafeArea(
         child: RefreshIndicator(
           color: _kBrand,
-          onRefresh: _fetchCompletedHours,
+          onRefresh: _fetchProgressData,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: _isLoading
                 ? const Padding(
                     padding: EdgeInsets.symmetric(vertical: 120),
@@ -132,12 +138,170 @@ class _DashboardPageState extends State<DashboardPage> {
                 : _errorMessage.isNotEmpty
                     ? _ErrorCard(
                         message: _errorMessage,
-                        onRetry: _fetchCompletedHours,
+                        onRetry: _fetchProgressData,
                       )
-                    : _Content(
-                        hours: hours,
-                        progress: progress,
-                        remaining: remaining,
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Semester Dropdown Selector
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: _kChipBg, width: 1.5),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _selectedSem,
+                                    icon: const Icon(Icons.keyboard_arrow_down, color: _kBrand, size: 18),
+                                    style: rf(fontSize: 13, fontWeight: FontWeight.w600, color: _kInk),
+                                    onChanged: (String? newSem) {
+                                      if (newSem != null && newSem != _selectedSem) {
+                                        setState(() {
+                                          _selectedSem = newSem;
+                                        });
+                                        _fetchProgressData();
+                                      }
+                                    },
+                                    items: _availableSems.map<DropdownMenuItem<String>>((String val) {
+                                      return DropdownMenuItem<String>(
+                                        value: val,
+                                        child: Text(val),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          _Content(
+                            hours: hours,
+                            progress: progress,
+                            remaining: remaining,
+                          ),
+                          const SizedBox(height: 28),
+                          // Activities Section Header
+                          Text(
+                            'Semester Activities',
+                            style: rf(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: _kInk,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          // Events dynamic list
+                          _events.isEmpty
+                              ? Container(
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'No activities found for this semester.',
+                                      style: rf(fontSize: 13, color: _kMuted),
+                                    ),
+                                  ),
+                                )
+                              : ListView.separated(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: _events.length,
+                                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                  itemBuilder: (context, index) {
+                                    final ev = _events[index];
+                                    final bool isPresent = ev['status'] == 'PRESENT';
+
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(16),
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            color: Color(0x081A3B5A),
+                                            blurRadius: 12,
+                                            offset: Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 40,
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              color: isPresent
+                                                  ? const Color(0xFFE8F5E9)
+                                                  : const Color(0xFFFFEBEE),
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: Icon(
+                                              isPresent ? Icons.check_circle_outline : Icons.cancel_outlined,
+                                              color: isPresent
+                                                  ? const Color(0xFF2E7D32)
+                                                  : const Color(0xFFC62828),
+                                              size: 22,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 14),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  ev['event_name'] ?? 'Activity',
+                                                  style: rf(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: _kInk,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  '${ev['date']} • ${ev['hours']} hrs',
+                                                  style: rf(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w400,
+                                                    color: _kMuted,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: isPresent
+                                                  ? const Color(0xFFE8F5E9)
+                                                  : const Color(0xFFFFEBEE),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              isPresent ? 'PRESENT' : 'ABSENT',
+                                              style: rf(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                color: isPresent
+                                                  ? const Color(0xFF2E7D32)
+                                                  : const Color(0xFFC62828),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                          const SizedBox(height: 24),
+                        ],
                       ),
           ),
         ),
@@ -161,11 +325,11 @@ class _Content extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const SizedBox(height: 40),
+        const SizedBox(height: 20),
         // Ring
         SizedBox(
-          width: 240,
-          height: 240,
+          width: 220,
+          height: 220,
           child: Stack(
             fit: StackFit.expand,
             alignment: Alignment.center,
@@ -200,7 +364,7 @@ class _Content extends StatelessWidget {
                     Text(
                       '$hours',
                       style: rf(
-                        fontSize: 64,
+                        fontSize: 60,
                         fontWeight: FontWeight.w500,
                         color: _kInk,
                         height: 1.0,
@@ -223,7 +387,7 @@ class _Content extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 36),
+        const SizedBox(height: 28),
         Text(
           remaining > 0
               ? "You need $remaining more hours to qualify."
@@ -235,7 +399,7 @@ class _Content extends StatelessWidget {
             color: _kInk,
           ),
         ),
-        const SizedBox(height: 36),
+        const SizedBox(height: 24),
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
@@ -265,7 +429,7 @@ class _Content extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'A minimum of 80% must be completed to be eligible for the PP grade out of 34 hours of NSS activities.',
+                  'A minimum of 28 hrs must be completed to be eligible for the PP grade out of 34 hours of NSS activities.',
                   style: rf(
                     fontSize: 13,
                     fontWeight: FontWeight.w300,
@@ -277,7 +441,6 @@ class _Content extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 24),
       ],
     );
   }
@@ -318,8 +481,7 @@ class _ErrorCard extends StatelessWidget {
               onPressed: onRetry,
               style: TextButton.styleFrom(
                 foregroundColor: _kBrand,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
               child: Text(
                 'Try again',

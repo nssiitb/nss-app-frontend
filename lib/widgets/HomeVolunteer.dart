@@ -42,15 +42,21 @@ class _HomeVolunteerState extends State<HomeVolunteer> {
         if (mounted) setState(() => _hoursLoading = false);
         return;
       }
-      final res = await ApiService.getCompletedHours(roll);
-      final body = jsonDecode(res.body);
-      if (mounted) {
-        setState(() {
-          if (body['status'] == true && body['hours'] != null) {
-            _completedHours = (body['hours'] as num).toInt();
-          }
-          _hoursLoading = false;
-        });
+      
+      // Working progress API call
+      final res = await ApiService.getVolunteerProgress(roll);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (mounted) {
+          setState(() {
+            if (body['success'] == true && body['completedHours'] != null) {
+              _completedHours = (body['completedHours'] as num).toInt();
+            }
+            _hoursLoading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _hoursLoading = false);
       }
     } catch (_) {
       if (mounted) setState(() => _hoursLoading = false);
@@ -410,7 +416,7 @@ class _HoursCard extends StatelessWidget {
                                   ? 'Fetching your hours…'
                                   : remaining == 0
                                       ? "You've completed your PP requirement."
-                                      : "$remaining more hrs to qualify for the PP grade.",
+                                      : "You need 80% Attendance to qualify for the PP grade.",
                               style: rf(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w300,

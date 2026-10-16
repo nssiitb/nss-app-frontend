@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:nssapp/global/IPv4_address.dart';
 import '../utils/authenticator.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+String get baseUrl => dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000';
+
 
 class ApiService {
   static final Map<String, String> _headers = {
@@ -171,5 +174,11 @@ class ApiService {
       headers: _headers,
       body: jsonEncode(body),
     );
+  }
+
+  static Future<http.Response> getVolunteerProgress(String roll, {String sem = 'Autumn-2026'}) async {
+    final url = Uri.parse('$baseUrl/api/volunteers/progress/$roll?sem=$sem');
+    return await http.get(url,
+      headers: await _authHeaders(),);
   }
 }
