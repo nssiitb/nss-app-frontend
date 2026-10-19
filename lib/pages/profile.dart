@@ -187,7 +187,7 @@ class _Header extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
-            isCTM ? 'CTM' : (isAA ? 'AA':"'Volunteer"),
+            isCTM ? 'CTM' : (isAA ? 'AA':"Volunteer"),
             style: rf(
               fontSize: 12,
               fontWeight: FontWeight.w500,
