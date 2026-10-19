@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../utils/authenticator.dart';
 import '../widgets/login_form.dart' show rf;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+String get baseUrl => dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000';
 
 const Color _kBrand = Color(0xFF1A3B5A);
 const Color _kInk = Color(0xFF0F172A);
@@ -87,7 +89,7 @@ class _VolunteerDetailEditPageState extends State<VolunteerDetailEditPage> {
 
     try {
       final res = await http.put(
-        Uri.parse('http://localhost:3000/api/volunteers/update'),
+        Uri.parse('$baseURL/api/volunteers/update'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $jwt',
@@ -145,7 +147,7 @@ class _VolunteerDetailEditPageState extends State<VolunteerDetailEditPage> {
 
     try {
       final res = await http.delete(
-        Uri.parse('http://localhost:3000/api/volunteers/delete/$roll'),
+        Uri.parse('$baseURL/api/volunteers/delete/$roll'),
         headers: {'Authorization': 'Bearer $jwt'},
       );
 
