@@ -144,10 +144,10 @@ class _HomeCTMState extends State<HomeCTM> {
                   ),
                   _TileCard(
                     icon: Icons.event_note_outlined,
-                    title: 'All Events',
+                    title: 'Calender',
                     subtitle: 'This month',
                     onTap: () =>
-                        Navigator.pushNamed(context, Routes.allEvents),
+                        Navigator.pushNamed(context, Routes.calendarRoute),
                   ),
                   _TileCard(
                     icon: Icons.group_outlined,

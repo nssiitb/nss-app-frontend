@@ -176,7 +176,7 @@ class _LoginFormState extends State<LoginForm> {
                       ),
                       const SizedBox(width: 10),
                       Text(
-                        'Are you an AA?',
+                        'Are you an Admin?',
                         style: rf(
                           fontSize: 14,
                           fontWeight: FontWeight.w400,

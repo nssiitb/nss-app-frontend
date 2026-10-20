@@ -146,7 +146,7 @@ class _ForgotPasswordState extends State<ForgotPassword> {
                 value: _isAA,
                 onChanged: (val) => setState(() => _isAA = val ?? false),
                 title: Text(
-                  'Change AA Password',
+                  'Change Admin Password',
                   style: rf(fontSize: 14, fontWeight: FontWeight.w500, color: _kInk),
                 ),
                 controlAffinity: ListTileControlAffinity.leading,

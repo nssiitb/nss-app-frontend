@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:nssapp/services/api_service.dart';
+import 'package:nssapp/utils/authenticator.dart';
 import 'package:nssapp/widgets/login_form.dart' show rf;
 
 const Color _kBrand = Color(0xFF1A3B5A);
@@ -12,6 +13,12 @@ const Color _kInk = Color(0xFF0F172A);
 const Color _kMuted = Color(0xFF6C757D);
 const Color _kBg = Color(0xFFF8F9FB);
 const Color _kChipBg = Color(0xFFEEF2F7);
+
+// Accent colours for your department's events
+const Color _kMyDeptPrimary = Color(0xFFE65100);
+const Color _kMyDeptBg = Color(0xFFFFF8F1);
+const Color _kMyDeptBorder = Color(0xFFFFCC80);
+const Color _kMyDeptChipBg = Color(0xFFFFE0B2);
 
 class Event {
   final String name;
@@ -47,6 +54,25 @@ class Event {
       department: json['department'] ?? 'General',
     );
   }
+
+  /// Checks if this event belongs to the student's department or is a common event.
+  bool matchesUserDept(String userDept) {
+    if (userDept.trim().isEmpty) return false;
+    final d = department.toUpperCase();
+    final u = userDept.toUpperCase();
+
+    if (d == 'ALL' || d == 'GENERAL') return true;
+
+    // Matches exact tokens (e.g. "SD" matches "CE,SD,ENS" or "SD" or "SOCIAL DEVELOPMENT")
+    final tokens = d.split(RegExp(r'[,/|]')).map((s) => s.trim()).toList();
+    if (tokens.contains(u)) return true;
+
+    if (u == 'SD' && d.contains('SOCIAL DEVELOPMENT')) return true;
+    if (u == 'ENS' && d.contains('ENVIRONMENTAL')) return true;
+    if (u == 'EO' && d.contains('EDUCATIONAL')) return true;
+
+    return false;
+  }
 }
 
 class EventCalendarScreen extends StatefulWidget {
@@ -64,11 +90,40 @@ class _EventCalendarScreenState extends State<EventCalendarScreen> {
   List<Event> _selectedEvents = [];
   bool _isLoading = true;
   String _errorMessage = '';
+  String _myDepartment = '';
 
   @override
   void initState() {
     super.initState();
-    _loadEvents();
+    _loadUserAndEvents();
+  }
+
+  Future<void> _loadUserAndEvents() async {
+    try {
+      final data = await AuthService().getToken();
+      final roll = data?['roll']?.toString() ?? '';
+      
+      if (roll.isNotEmpty) {
+        // Direct ga progress API nundi user department theesukuntundhi
+        final res = await ApiService.getVolunteerProgress(roll);
+        if (res.statusCode == 200) {
+          final body = jsonDecode(res.body);
+          // Backend response lo department structure batti pick chey
+          final dept = body['department'] ?? 
+                       body['volunteer']?['department'] ?? 
+                       data?['department'] ?? '';
+          if (mounted) {
+            setState(() {
+              _myDepartment = dept.toString().trim();
+            });
+            debugPrint("Logged in Volunteer Department: $_myDepartment");
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching user department: $e");
+    }
+    await _loadEvents();
   }
 
   Future<void> _loadEvents() async {
@@ -169,7 +224,9 @@ class _EventCalendarScreenState extends State<EventCalendarScreen> {
               children: [
                 _customHeader(),
                 _calendarCard(),
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
+                _legendIndicator(),
+                const SizedBox(height: 20),
                 _selectedDayHeader(),
                 const SizedBox(height: 16),
                 if (_isLoading)
@@ -187,13 +244,48 @@ class _EventCalendarScreenState extends State<EventCalendarScreen> {
                 else
                   ..._selectedEvents.map((e) => Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: _EventCard(event: e),
+                        child: _EventCard(
+                          event: e,
+                          isMyDept: e.matchesUserDept(_myDepartment),
+                        ),
                       )),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _legendIndicator() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          _legendItem(color: _kMyDeptPrimary, label: 'Your Department'),
+          const SizedBox(width: 14),
+          _legendItem(color: _kBrand, label: 'Other Events'),
+        ],
+      ),
+    );
+  }
+
+  Widget _legendItem({required Color color, required String label}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: rf(fontSize: 11, fontWeight: FontWeight.w400, color: _kMuted),
+        ),
+      ],
     );
   }
 
@@ -223,8 +315,6 @@ class _EventCalendarScreenState extends State<EventCalendarScreen> {
         rowHeight: 44,
         daysOfWeekHeight: 32,
         headerVisible: false,
-        // Force 6 rows regardless of month length so the card doesn't
-        // shrink/grow between Feb (4 rows) and 31-day months.
         sixWeekMonthsEnforced: true,
         daysOfWeekStyle: DaysOfWeekStyle(
           weekdayStyle: rf(
@@ -246,15 +336,36 @@ class _EventCalendarScreenState extends State<EventCalendarScreen> {
           markerBuilder: (context, day, events) {
             if (events.isEmpty) return null;
             final isSelected = isSameDay(day, _selectedDay);
+            final dayEvents = events.cast<Event>();
+            final hasMyDept = dayEvents.any((e) => e.matchesUserDept(_myDepartment));
+            final hasOtherDept = dayEvents.any((e) => !e.matchesUserDept(_myDepartment));
+
             return Positioned(
               bottom: 4,
-              child: Container(
-                width: 4,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isSelected ? Colors.white : _kBrand,
-                  shape: BoxShape.circle,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (hasMyDept)
+                    Container(
+                      width: 5,
+                      height: 5,
+                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.white : _kMyDeptPrimary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  if (hasOtherDept)
+                    Container(
+                      width: 5,
+                      height: 5,
+                      margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.white70 : _kBrand,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                ],
               ),
             );
           },
@@ -450,15 +561,20 @@ class _EventCalendarScreenState extends State<EventCalendarScreen> {
 
 class _EventCard extends StatelessWidget {
   final Event event;
-  const _EventCard({required this.event});
+  final bool isMyDept;
+  const _EventCard({required this.event, required this.isMyDept});
 
   @override
   Widget build(BuildContext context) {
+    final cardBg = isMyDept ? _kMyDeptBg : Colors.white;
+    final iconColor = isMyDept ? _kMyDeptPrimary : _kBrand;
+    final iconBg = isMyDept ? _kMyDeptChipBg : _kChipBg;
+
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(20),
+        border: isMyDept ? Border.all(color: _kMyDeptBorder, width: 1.2) : null,
         boxShadow: const [
           BoxShadow(
             color: Color(0x0F1A3B5A),
@@ -467,66 +583,114 @@ class _EventCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: _kChipBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.event_outlined,
-                size: 20, color: _kBrand),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  event.name,
-                  style: rf(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: _kInk,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (isMyDept)
+                Container(
+                  width: 5,
+                  color: _kMyDeptPrimary,
+                ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: iconBg,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(Icons.event_outlined,
+                            size: 20, color: iconColor),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    event.name,
+                                    style: rf(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: _kInk,
+                                    ),
+                                  ),
+                                ),
+                                if (isMyDept)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _kMyDeptChipBg,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      'YOUR DEPT',
+                                      style: rf(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: _kMyDeptPrimary,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            if (event.description.trim().isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                event.description,
+                                style: rf(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w300,
+                                  color: _kMuted,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                _MetaChip(
+                                  icon: Icons.apartment_outlined,
+                                  label: event.department,
+                                  isHighlighted: isMyDept,
+                                ),
+                                _MetaChip(
+                                  icon: Icons.schedule_outlined,
+                                  label: event.time,
+                                ),
+                                _MetaChip(
+                                  icon: Icons.timelapse_outlined,
+                                  label:
+                                      '${event.hours} ${event.hours > 1 ? "hrs" : "hr"}',
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                if (event.description.trim().isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    event.description,
-                    style: rf(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w300,
-                      color: _kMuted,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    _MetaChip(
-                        icon: Icons.apartment_outlined,
-                        label: event.department),
-                    _MetaChip(
-                        icon: Icons.schedule_outlined, label: event.time),
-                    _MetaChip(
-                      icon: Icons.timelapse_outlined,
-                      label:
-                          '${event.hours} ${event.hours > 1 ? "hrs" : "hr"}',
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -535,27 +699,36 @@ class _EventCard extends StatelessWidget {
 class _MetaChip extends StatelessWidget {
   final IconData icon;
   final String label;
-  const _MetaChip({required this.icon, required this.label});
+  final bool isHighlighted;
+
+  const _MetaChip({
+    required this.icon,
+    required this.label,
+    this.isHighlighted = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final bg = isHighlighted ? _kMyDeptChipBg : _kChipBg;
+    final fg = isHighlighted ? _kMyDeptPrimary : _kBrand;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: _kChipBg,
+        color: bg,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: _kBrand),
+          Icon(icon, size: 13, color: fg),
           const SizedBox(width: 6),
           Text(
             label,
             style: rf(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: _kBrand,
+              color: fg,
             ),
           ),
         ],

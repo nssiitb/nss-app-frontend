@@ -47,6 +47,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     onChanged: (t) => setState(() => _tab = t),
                   ),
                 ],
+                
               ),
             ),
             // Only the form area transitions. Everything above stays put.
