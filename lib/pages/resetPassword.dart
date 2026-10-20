@@ -1,7 +1,6 @@
 import 'dart:convert';
-
+import '../global/IPv4_address.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:nssapp/utils/routes.dart';
 import 'package:nssapp/widgets/login_form.dart'
@@ -83,7 +82,7 @@ class _ResetPasswordState extends State<ResetPassword> {
     setState(() => _loading = true);
     try {
       final res = await http.post(
-        Uri.parse("${dotenv.env['BASE_URL']}/reset-password"),
+        Uri.parse("$baseURL/reset-password"),
         headers: const {"Content-Type": "application/json"},
         body: jsonEncode({
           "roll": _roll, 
